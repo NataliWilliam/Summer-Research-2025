@@ -234,7 +234,8 @@ tb_df <- data.frame(
   I3 = I3,
   E4 = E4, 
   I4 = I4,
-  D = D
+  D = D,
+  N = N_vec
 )
 
 tb_long <- pivot_longer(
