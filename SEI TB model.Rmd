@@ -106,7 +106,7 @@ N[1] <- N_initial
 ```{r}
 #Simulation
 for(t in 1:(length(time) - 1)) {
-    dS <- (rho * N[t]) - (q * t1 * lamda * ( (S[t] * I_1[t]) / N[t] ))  - (q * t2 * lamda * ( (S[t] * I_2[t]) / N[t]) ) - (q * t3 * lamda * ( (S[t] * I_3[t]) / N[t]) ) - (q * t4 * lamda * ( (S[t] * I_4[t]) / N[t]) ) + ( z1 * phi1 * I_1[t] ) + ( z2 * phi2 * I_2[t] ) + ( z3 * phi3 * I_3[t] )
+    dS <- (rho * N[t]) - (q * t1 * lamda * ( (S[t] * I_1[t]) / N[t] ))  - (q * t2 * lamda * ( (S[t] * I_2[t]) / N[t]) ) - (q * t3 * lamda * ( (S[t] * I_3[t]) / N[t]) ) - (q * t4 * lamda * ( (S[t] * I_4[t]) / N[t]) ) + ( z1 * phi1 * I_1[t] ) + ( z2 * phi2 * I_2[t] ) + ( z3 * phi3 * I_3[t] ) - (mu0 * S[t])
     dE_1 <- ((1 - p) * q * t2 * lamda * ((S[t] * I_1[t]) / N[t])) - (vL * E_1[t]) + ((1 - y1) * (1 - z1) * phi1 * I_1[t]) + (iota * alpha * (1 - r2 - r3 - r4) * N[t]) - (mu0 * E_1[t])
     dI_1 <- (q * t1 * lamda * ((S[t] * I_1[t]) / N[t])) + (q * vL * E_1[t]) - (phi1 * I_1[t]) - (mu0 * I_1[t]) - (mu * I_1[t])
     dE_2 <- ((1 - p) * q * t2 * lamda * ((S[t] * I_2[t]) / N[t])) - (vL * E_2[t]) + ((1 - y2) * (1 - z2) * phi2 * I_2[t]) + (gamma * (1 - z1) * y1 * phi1 * I_1[t]) + (iota * alpha * r2 * N[t]) - (mu0 * E_2[t])
