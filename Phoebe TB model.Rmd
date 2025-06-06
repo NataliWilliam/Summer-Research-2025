@@ -11,7 +11,7 @@ library(tidyr)
 ```
 
 ```{r}
-#ssss
+
 # Multi-strain TB system with drug resistance
 
 # Initial Setup
