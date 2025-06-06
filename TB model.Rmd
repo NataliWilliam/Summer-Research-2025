@@ -41,9 +41,9 @@ S_initial <- N_initial - (
 
 
 # Time periods
-days <- 500
+years <- 50
 dt <- 1
-time <- seq(0, days, by = dt)
+time <- seq(0, years, by = dt)
 
 # Assumption of parameters
 a2 <- 0.1     # Proportion of initial latent TB cases that are H-resistant 
@@ -248,7 +248,7 @@ ggplot(tb_long, aes(x = Day, y = Count, color = Compartment)) +
   geom_line(size = 1) +
   labs(
     title = "Multi-Strain TB Simulation",
-    x = "Time (days)",
+    x = "Time (years)",
     y = "Population count"
   ) +
   theme_minimal()
