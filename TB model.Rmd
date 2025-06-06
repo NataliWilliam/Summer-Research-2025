@@ -15,16 +15,16 @@ library(tidyr)
 
 # Initial Setup
 E1_initial <- 1 # Latent DS
-I1_initial <- 1 # Infectious DS
+I1_initial <- 7 # Infectious DS
 
 E2_initial <- 1 # Latent H-resistant
-I2_initial <- 1 # Infectious H-resistant
+I2_initial <- 2 # Infectious H-resistant
 
 E3_initial <- 1 # Latent R-resistant
-I3_initial <- 1 # Infectious R-resistant
+I3_initial <- 5 # Infectious R-resistant
 
 E4_initial <- 1 # Latent MDR
-I4_initial <- 1 # Infectious MDR
+I4_initial <- 9 # Infectious MDR
 
 D_initial <- 0 # Initial deaths
 
