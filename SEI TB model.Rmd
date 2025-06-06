@@ -1,0 +1,163 @@
+---
+title: "SEI Model"
+output: html_document
+date: "2025-06-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(tidyr)
+```
+
+```{r}
+#parameter setup
+
+#Total Population
+N_initial <- 1000
+
+#Initial Values
+I_1_initial <- 7 #the number of individuals actively infected with DS TB
+E_1_initial <- 0 #the number of individuals latently infected with DS TB
+I_2_initial <- 5 #the number of individuals actively infected with H-resistent TB
+E_2_initial <- 0 #the number of individuals latently infected with H-resistent TB
+I_3_initial <- 8 #the number of individuals actively infected with R-resistent TB
+E_3_initial <- 0 #the number of individuals latently infected with R-resistent TB
+I_4_initial <- 6 #the number of individuals actively infected with MDR TB
+E_4_initial <- 0 #the number of individuals latently infected with MDR TB
+D_initial <- 0 #the number of deaths caused by TB
+S_initial <- N_initial - I_1_initial - E_1_initial - I_2_initial - E_2_initial - I_3_initial - E_3_initial - I_4_initial - E_4_initial - D_initial #everyone else is susceptible
+
+#Set up the time
+years <- 300
+time <- seq(0, years, by = 1)
+
+#Set up the parameters
+alpha1 <- 0.1 #proportion of initial LTBI cases that are H-resistent
+alpha2 <- 0.1 #proportion of initial LTBI cases that are R-resistent
+alpha3 <- 0.1 #proportion of initial LTBI cases that are MDR
+
+alpha <- 0.00425 #immigration rate
+beta <- 0.75 #proportion of initial active cases that are DS
+gamma <- 0.5 #proportion of H-resistance acquisition cases
+iota <- 0.15 #proportion of immigrants that have LTBI
+
+lamda <- 15 #effective contact rate
+mu <- 0.25 #TB mortality rate
+mu0 <- 0.013 #mortality rate unrelated to TB
+p <- 0.15 #proportion of exogenous infections that are acute
+
+phi1 <- 0.75 #rate of end of treatment
+phi2 <- 0.7 #rate of end of treatment(H-resistent)
+phi3 <- 0.43 #rate of end of treatment (R-resistent)
+phi4 <- 0.4 #rate of end of treatment (MDR)
+
+q <- 0.5 #proportion of active cases that have the potential to be infectious
+
+r2 <- 0.1 #proportion of immigrant H-resistent LTBI cases
+r3 <- 0.1 #proportion of immigrant R-resistent LTBI cases
+r4 <- 0.1 #proportion of immigrant MDR LTBI cases
+
+rho <- 0.0179 #US birth rate
+
+t1 <- 0.05 #proportion of treatment time when individuals are infectious (DS)
+t2 <- 0.05 #proportion of treatment time when individuals are infectious (H-resistent)
+t3 <- 0.05 #proportion of treatment time when individuals are infectious (R-resistent)
+t4 <- 0.05 #proportion of treatment time when individuals are infectious (MDR)
+
+vL <- 0.005 #progression rate from latent to active infection
+y1 <- 0.5 #proportion of failed treatments for DS TB that result in H- or R- resistance
+y2 <- 0.5 #proportion of failed treatments for H- or R-resistant TB that result in MDR
+
+z1 <- 0.75 #proportion of treatment courses for DS TB that are successful
+z2 <- 0.7 #proportion of treatment courses for H-resistent TB that are successful
+z3 <- 0.7 #proportion of treatment courses for R-resistent TB that are successful
+z4 <- 0.45 #proportion of treatment courses for MDR TB that are successful
+```
+
+```{r}
+#Variable Setup
+S <- numeric(length(time))
+I_1 <- numeric(length(time))
+E_1 <- numeric(length(time))
+I_2 <- numeric(length(time))
+E_2 <- numeric(length(time))
+I_3 <- numeric(length(time))
+E_3 <- numeric(length(time))
+I_4 <- numeric(length(time))
+E_4 <- numeric(length(time))
+D <- numeric(length(time))
+N <- numeric(length(time))
+
+#Initial Values 
+S[1] <- S_initial
+I_1[1] <- I_1_initial
+E_1[1] <- E_1_initial
+I_2[1] <- I_2_initial
+E_2[1] <- E_2_initial
+I_3[1] <- I_3_initial
+E_3[1] <- E_3_initial
+I_4[1] <- I_4_initial
+E_4[1] <- E_4_initial
+D[1] <- D_initial
+N[1] <- N_initial
+```
+
+```{r}
+#Simulation
+for(t in 1:(length(time) - 1)) {
+    dS <- (rho * N[t]) - (q * t1 * lamda * ( (S[t] * I_1[t]) / N[t] ))  - (q * t2 * lamda * ( (S[t] * I_2[t]) / N[t]) ) - (q * t3 * lamda * ( (S[t] * I_3[t]) / N[t]) ) - (q * t4 * lamda * ( (S[t] * I_4[t]) / N[t]) ) + ( z1 * phi1 * I_1[t] ) + ( z2 * phi2 * I_2[t] ) + ( z3 * phi3 * I_3[t] )
+    dE_1 <- ((1 - p) * q * t2 * lamda * ((S[t] * I_1[t]) / N[t])) - (vL * E_1[t]) + ((1 - y1) * (1 - z1) * phi1 * I_1[t]) + (iota * alpha * (1 - r2 - r3 - r4) * N[t]) - (mu0 * E_1[t])
+    dI_1 <- (q * t1 * lamda * ((S[t] * I_1[t]) / N[t])) + (q * vL * E_1[t]) - (phi1 * I_1[t]) - (mu0 * I_1[t]) - (mu * I_1[t])
+    dE_2 <- ((1 - p) * q * t2 * lamda * ((S[t] * I_2[t]) / N[t])) - (vL * E_2[t]) + ((1 - y2) * (1 - z2) * phi2 * I_2[t]) + (gamma * (1 - z1) * y1 * phi1 * I_1[t]) + (iota * alpha * r2 * N[t]) - (mu0 * E_2[t])
+    dI_2 <- (q * t2 * lamda * ((S[t] * I_2[t])/N[t])) + (vL * E_2[t]) - (phi2 * I_2[t]) - (mu0 * I_2[t]) - (mu * I_2[t])
+             
+    dE_3 <- ((1 - p) * q * t3 * lamda * ((S[t] * I_3[t])/N[t])) - (vL * E_3[t]) + ((1 - y2) * (1 - z3) * phi3 * I_3[t]) + ((1 - gamma) * (1 - z1) * y1 * phi1 * I_1[t]) + (iota * alpha * r3 * N[t]) - (mu0 * E_3[t])
+    dI_3 <- (q * t3 * lamda * ((S[t] * I_3[t]) / N[t])) + (vL * E_3[t]) - (phi3 * I_3[t]) - (mu0 * I_3[t]) - (mu * I_3[t])
+    dE_4 <- ((1 - p) * q * t4 * lamda * ((S[t] * I_4[t]) / N[t])) - (vL * E_4[t]) + ((1 - z2) * y2 * phi2 * I_2[t]) + ((1 - z3) * y2 * phi3 * I_3[t]) + ((1 - z4) * phi4 * I_4[t]) + (iota * alpha * r4 * N[t]) - (mu0 * E_4[t])
+    dI_4 <- (q * t4 * lamda * ((S[t] * I_4[t]) / N[t])) + (vL * E_4[t]) - (phi4 * I_4[t]) - (mu0 * I_4[t]) - (mu * I_4[t])
+    dD <- (mu * (I_1[t] + I_2[t] + I_3[t] + I_4[t]))
+    dN <- (rho * N[t]) + (alpha * N[t]) - (mu * (I_1[t] + I_2[t] + I_3[t] + I_4[t])) - (mu0 * N[t])
+    
+    #update values
+    S[t+1] <- S[t] + dS
+    E_1[t+1] <- E_1[t] + dE_1
+    I_1[t+1] <- I_1[t] + dI_1
+    E_2[t+1] <- E_2[t] + dE_2
+    I_2[t+1] <- I_2[t] + dI_2
+    E_3[t+1] <- E_3[t] + dE_3
+    I_3[t+1] <- I_3[t] + dI_3
+    E_4[t+1] <- E_4[t] + dE_4 
+    I_4[t+1] <- I_4[t] + dI_4
+    D[t+1] <- D[t] + dD
+    N[t+1] <- N[t] + dN
+}
+
+table <- data.frame (Day = time, S = S, E_1 = E_1, I_1 = I_1, E_2 = E_2, I_2 = I_2, E_3 = E_3, I_3 = I_3, E_4 = E_4, I_4 = I_4, D = D, N = N)
+head(table)
+```
+
+
+```{r}
+
+sei_long <- pivot_longer(
+  table,
+  cols = c("S", "E_1", "I_1", "E_2", "I_2", "E_3", "I_3", "E_4", "I_4", "D", "N"),
+  names_to = "Compartments",
+  values_to = "Count"
+)
+
+ggplot(data = sei_long,
+       mapping = aes(x = Day, y = Count, color = Compartments)) + 
+       geom_line(size = 1.0) +
+  labs (
+    title = "SEI MODEL SIMULATION",
+    x = "Time(days)",
+    y = "Number of Individuals"
+       ) + 
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_brewer(palette = "Paired")
+
+```
+
