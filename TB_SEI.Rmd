@@ -1,0 +1,299 @@
+---
+title: "Simulating TB in the U.S. with an S.E.I. Model"
+author: "Bella Delmonte"
+date: "06-09-25"
+output: pdf_document
+---
+
+## Load in necessary libraries, set up parameters and time values
+
+```{r}
+
+# load in libraries
+
+library("deSolve")
+library(ggplot2)
+library(tidyr)  
+
+```
+
+```{R}
+
+# set up params
+
+rho = 0.0179 # US birth rate: range 0.0179
+q = 0.15 # Proportion of active cases that have potential to be infectious. Range (0, 1)
+alpha = 0.00425 # Immigration rate. Range 0.00425
+lambda = 8 # Effective Contact Rate. Range (0, 30)
+gamma = 0.1 # Proportion H-resistance acquisition cases. Range (0, 1)
+mu_0 = 0.013 # Mortality rate unrelated to TB. Range 0.013
+mu = 0.15 # TB mortality rate. Range (0, 0.5)
+v_L = 0.003 # Progression rate from latent to active infection. Range (0, 0.01)
+l = 0.25 # Proportion of immigrants that have LTBI. Range (0, 0.3)
+p = 0.15 # Proportion of exogenous infections that are acute. Range (0, 0.3)
+trt = c(0.1, 0.1, 0.1, 0.1) # Proportion of treatment time when individuals are infectious (I 1-4). Range (0,0.1)
+z = c(0.85, 0.7, 0.65, 0.4) # Proportion of treatment courses for TB (DS,H,R,MDR) that are successful. Ranges [(0.6, 0.9), (0.5, 0.9), (0.5, 0.9), (0.1, 0.8)]
+phi = c(0.8,0.8,0.5,0.4) # Rate of end of treatment (DS, H, R, MDR). Ranges [(0.6, 0.9), (0.5, 0.9), (0.36, 0.5), (0.3, 0.5)]
+r = c(0.05,0.03,0.02) # Proportion of immigrant LTBI cases (H,R,MDR). Ranges [(0, 0.2), (0, 0.2), (0, 0.2)]
+y = c(0.15,0.1) # Proportion of failed treatments for DS TB that result in H- or R-resistance Ranges [(0, 1), (0,1),...NA]
+
+```
+
+```{r}
+
+# time setup
+
+years <- 50
+dt = 0.25
+time <- seq(0, years, dt)
+  
+```
+
+## Solve Differential Equations Numerically using Euler's Method
+
+```{r}
+
+# variables and initial values setup
+
+S = numeric(length(time))
+E_1 = numeric(length(time))
+I_1 = numeric(length(time))
+E_2 = numeric(length(time))
+I_2 = numeric(length(time))
+E_3 = numeric(length(time))
+I_3 = numeric(length(time))
+E_4 = numeric(length(time))
+I_4 = numeric(length(time))
+D = numeric(length(time))
+N = numeric(length(time))
+
+S[1] = 950000
+E_1[1] = 30000
+I_1[1] = 2000
+E_2[1] = 3000
+I_2[1] = 500
+E_3[1] = 2000
+I_3[1] = 300
+E_4[1] = 1000
+I_4[1] = 200
+D[1] = 0
+N[1] = 1000000
+
+```
+
+```{r}
+
+# CDE Model
+
+for (t in 1:(length(time) - 1)) {
+  
+  # differential equations
+  
+   # dS/dT
+      dS <- (rho*N[t]) 
+            - (q*trt[1]*lambda*(S[t]*I_2[t]/N[t])) - (q*trt[2]*lambda*(S[t]*I_2[t]/N[t])) - (q*trt[3]*lambda*(S[t]*I_3[t]/N[t])) - (q*trt[4]*lambda*(S[t]*I_4[t]/N[t])) 
+            + (z[1]*phi[1]*I_1[t]) + (z[2]*phi[2]*I_2[t]) + (z[3]*phi[3]*I_3[t]) + (z[4]*phi[4]*I_4[t])
+            + (1 - l)*(alpha*N[t]) - mu_0*S 
+      
+      # dE_1/dT
+      dE_1 <- (1 - p)*(q*trt[1]*lambda*(S[t]*I_1[t]/N[t])) - v_L*E_1[t] + (1-y[1])*(1-z[1])*phi[1]*I_1[t] + l*alpha*(1 - r[1] - r[2] - r[3])*N[t] - mu_0*E_1[t]
+      
+      # dI_1/dT 
+      dI_1 <- q*trt[1]*lambda*(S[t]*I_1[t]/N[t]) + q*v_L*E_1[t] - phi[1]*I_1[t] - mu_0*I_1[t] - mu*I_1[t]
+      
+      # dE_2/dT
+      dE_2 <- (1 - p)*(q*trt[2]*lambda*(S[t]*I_2[t]/N[t])) - v_L*E_2[t] + (1-y[1])*(1-z[2])*phi[2]*I_2[t] + gamma*(1-z[1])*y[1]*phi[1]*I_1[t] + l*alpha*r[1]*N[t] - mu_0*E_2[t]
+      
+      # dI_2/dT
+      dI_2 <- q*trt[2]*lambda*(S[t]*I_2[t]/N[t]) + v_L*E_2[t] - phi[2]*I_2[t] - mu_0*I_2[t] - mu*I_2[t]
+      
+      # dE_3/dT
+      dE_3 <- (1 - p)*(q*trt[3]*lambda*(S[t]*I_3[t]/N[t])) - v_L*E_3[t] + (1-y[1])*(1-z[3])*phi[3]*I_3[t] + (1-gamma)*(1-z[1])*y[1]*phi[1]*I_1[t] + l*alpha*r[2]*N[t] - mu_0*E_3[t]
+      
+      # dI_3/dT
+      dI_3 <- q*trt[3]*lambda*(S[t]*I_3[t]/N[t]) + v_L*E_3[t] - phi[3]*I_3[t] - mu_0*I_3[t] - mu*I_3[t]
+      
+      # dE_4/dT
+      dE_4 <- (1 - p)*(q*trt[4]*lambda*(S[t]*I_4[t]/N[t])) - v_L*E_4[t] 
+      + (1-z[2])*y[1]*phi[2]*I_2[t] + (1-z[3])*y[1]*phi[3]*I_3[t] + (1-z[4])*phi[4]*I_4[t]
+      + l*alpha*r[4]*N[t] - mu_0*E_4[t]
+      
+      # dI_4/dT
+      dI_4 <- q*trt[4]*lambda*(S[t]*I_4[t]/N[t]) + v_L*E_4[t] - phi[4]*I_4[t] - mu_0*I_4[t] - mu*I_4[t]
+      
+      # dD/dT
+      dD <- mu*(I_1[t] + I_2[t] + I_3[t] + I_4[t])
+      
+      # dN/dT
+      dN <- rho*N[t] + alpha*N[t] - mu*(I_1[t] + I_2[t] + I_3[t] + I_4[t]) - mu_0*N[t]
+  
+    # Updated values
+      
+    S[t + 1] = S[t] + dS*dt
+    E_1[t + 1] = E_1[t] + dE_1*dt
+    I_1[t + 1] = I_1[t] + dI_1*dt
+    E_2[t + 1] = E_2[t] + dE_2*dt
+    I_2[t + 1] = I_2[t] + dI_2*dt
+    E_3[t + 1] = E_3[t] + dE_3*dt
+    I_3[t + 1] = I_3[t] + dI_3*dt
+    E_4[t + 1] = E_4[t] + dE_4*dt
+    I_4[t + 1] = I_4[t] + dI_4*dt
+    D[t + 1] = D[t] + dD*dt
+    N[t + 1] = N[t] + dN*dt
+    
+}
+
+result1 = data.frame(time, S, E_1, I_1, E_2, I_2, E_3, I_3, E_4, I_4, D, N)
+result1
+
+```
+
+## Check Model using DeSolve
+
+```{r}
+
+# set up params for deSolve()
+
+params <- list(
+  rho = 0.0179, # US birth rate: range 0.0179
+  q = 0.15, # Proportion of active cases that have potential to be infectious. Range (0, 1)
+  alpha = 0.00425, # Immigration rate. Range 0.00425
+  lambda = 8, # Effective Contact Rate. Range (0, 30)
+  gamma = 0.1, # Proportion H-resistance acquisition cases. Range (0, 1)
+  mu_0 = 0.013, # Mortality rate unrelated to TB. Range 0.013
+  mu = 0.15, # TB mortality rate. Range (0, 0.5)
+  v_L = 0.003, # Progression rate from latent to active infection. Range (0, 0.01)
+  l = 0.25, # Proportion of immigrants that have LTBI. Range (0, 0.3)
+  p = 0.15, # Proportion of exogenous infections that are acute. Range (0, 0.3)
+  trt = c(0.1, 0.1, 0.1, 0.1), # Proportion of treatment time when individuals are infectious (I 1-4). Range (0,0.1)
+  z = c(0.85, 0.7, 0.65, 0.4), # Proportion of treatment courses for TB (DS,H,R,MDR) that are successful. Ranges [(0.6, 0.9), (0.5, 0.9), (0.5, 0.9), (0.1, 0.8)]
+  phi = c(0.8,0.8,0.5,0.4), # Rate of end of treatment (DS, H, R, MDR). Ranges [(0.6, 0.9), (0.5, 0.9), (0.36, 0.5), (0.3, 0.5)]
+  r = c(0.05,0.03,0.02), # Proportion of immigrant LTBI cases (H,R,MDR). Ranges [(0, 0.2), (0, 0.2), (0, 0.2)]
+  y = c(0.15,0.1) # Proportion of failed treatments for DS TB that result in H- or R-resistance Ranges [(0, 1), (0,1),...NA]
+)
+```
+
+```{r}
+
+# set up initial values for DeSolve method
+
+initial <- c(
+  S = 950000,
+  E_1 = 30000,
+  I_1 = 2000,
+  E_2 = 3000,
+  I_2 = 500,
+  E_3 = 2000,
+  I_3 = 300,
+  E_4 = 1000,
+  I_4 = 200,
+  D = 0,
+  N = 1000000 
+)
+
+```
+
+```{r}
+
+# Set up differential equations for DeSolve method
+
+diffeqs <- function(t, y, params) {
+  with(as.list(c(y, params)), {
+      # dS/dT
+      dS <- (rho*N) 
+            - (q*trt[1]*lambda*(S*I_2/N)) - (q*trt[2]*lambda*(S*I_2/N)) - (q*trt[3]*lambda*(S*I_3/N)) - (q*trt[4]*lambda*(S*I_4/N)) 
+            + (z[1]*phi[1]*I_1) + (z[2]*phi[2]*I_2) + (z[3]*phi[3]*I_3) + (z[4]*phi[4]*I_4)
+            + (1 - l)*(alpha*N) - mu_0*S 
+      
+      # dE_1/dT
+      dE_1 <- (1 - p)*(q*trt[1]*lambda*(S*I_1/N)) - v_L*E_1 + (1-y[1])*(1-z[1])*phi[1]*I_1 + l*alpha*(1 - r[1] - r[2] - r[3])*N - mu_0*E_1
+      
+      # dI_1/dT 
+      dI_1 <- q*trt[1]*lambda*(S*I_1/N) + q*v_L*E_1 - phi[1]*I_1 - mu_0*I_1 - mu*I_1
+      
+      # dE_2/dT
+      dE_2 <- (1 - p)*(q*trt[2]*lambda*(S*I_2/N)) - v_L*E_2 + (1-y[1])*(1-z[2])*phi[2]*I_2 + gamma*(1-z[1])*y[1]*phi[1]*I_1 + l*alpha*r[1]*N - mu_0*E_2
+      
+      # dI_2/dT
+      dI_2 <- q*trt[2]*lambda*(S*I_2/N) + v_L*E_2 - phi[2]*I_2 - mu_0*I_2 - mu*I_2
+      
+      # dE_3/dT
+      dE_3 <- (1 - p)*(q*trt[3]*lambda*(S*I_3/N)) - v_L*E_3 + (1-y[1])*(1-z[3])*phi[3]*I_3 + (1-gamma)*(1-z[1])*y[1]*phi[1]*I_1 + l*alpha*r[2]*N - mu_0*E_3
+      
+      # dI_3/dT
+      dI_3 <- q*trt[3]*lambda*(S*I_3/N) + v_L*E_3 - phi[3]*I_3 - mu_0*I_3 - mu*I_3
+      
+      # dE_4/dT
+      dE_4 <- (1 - p)*(q*trt[4]*lambda*(S*I_4/N)) - v_L*E_4 
+      + (1-z[2])*y[1]*phi[2]*I_2 + (1-z[3])*y[1]*phi[3]*I_3 + (1-z[4])*phi[4]*I_4
+      + l*alpha*r[4]*N - mu_0*E_4
+      
+      # dI_4/dT
+      dI_4 <- q*trt[4]*lambda*(S*I_4/N) + v_L*E_4 - phi[4]*I_4 - mu_0*I_4 - mu*I_4
+      
+      # dD/dT
+      dD <- mu*(I_1 + I_2 + I_3 + I_4)
+      
+      # dN/dT
+      dN <- rho*N + alpha*N - mu*(I_1 + I_2 + I_3 + I_4) - mu_0*N
+     
+      return(list(c(dS, dE_1, dI_1, dE_2, dI_2, dE_3, dI_3, dE_4, dI_4, dD, dN)))
+    })
+   }
+```
+
+```{R}
+
+# Solve Differential Equations Using DeSolve()
+
+result2 <- ode(
+  y = initial,
+  times = time,
+  func = diffeqs,
+  parms = params,
+  rtol = 1e-6,
+  atol = 1e-6
+)
+
+result2 <- as.data.frame(result2)
+result2
+
+```
+
+## Compare Results
+
+First, we'll plot the result of coding a solution by hand:
+
+```{r}
+
+# plot the solution from the code-by-hand method
+
+result1_long <- pivot_longer(result1, cols = -time, names_to = "compartment", values_to = "Count")
+
+ggplot(result1_long[result1_long$compartment %in% c("S", "E_1", "I_1","E_2", "I_2", "E_3", "I_3", "E_4", "I_4", "D","N"),], aes(x = time, y = Count, color = compartment)) + 
+  geom_line(linewidth = 1) +
+  labs(title = "TB Model Simulation", x = "Time(years", y = "Number of People", color = "Compartment") +
+  theme_minimal()
+
+```
+
+Now, we'll plot the result of solving using DeSolve to see if it yields the same result
+
+```{R}
+
+# plot the solution from the DeSolve method
+
+result2_long <- pivot_longer(result2,cols = -time, names_to = "compartment", values_to = "Count")
+
+ggplot(result2_long[result2_long$compartment %in% c("S", "E_1", "I_1","E_2", "I_2", "E_3", "I_3", "E_4", "I_4", "D","N"), ], 
+       aes(x = time, y = Count, color = compartment)) +
+  geom_line(linewidth = 1) +
+  labs(title = "TB Model Simulation",
+       x = "Time (years)",
+       y = "Number of People",
+       color = "Compartment") +
+  theme_minimal()
+
+```
+
+Same output!
