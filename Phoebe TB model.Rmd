@@ -1,6 +1,8 @@
 ---
 title: "TB model"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2025-06-05"
 ---
 
@@ -11,6 +13,7 @@ library(tidyr)
 ```
 
 ```{r}
+
 # Multi-strain TB system with drug resistance
 
 # Initial Setup
@@ -42,8 +45,10 @@ S_initial <- N_initial - (
 
 # Time periods
 years <- 50
-dt <- 1
+dt <- .01
 time <- seq(0, years, by = dt)
+n <- length(time)
+
 
 # Assumption of parameters
 a2 <- 0.1     # Proportion of initial latent TB cases that are H-resistant 
@@ -122,73 +127,74 @@ N_vec[1] <- N_initial
 
 # Simulation
 for (t in 1:(length(time) - 1)) {
-  dS <- rho * N_vec[t] 
+  dS <- (rho * N_vec[t] 
     - q * t1 * lambda * S[t] * I1[t] / N_vec[t] 
     - q * t2 * lambda * S[t] * I2[t] / N_vec[t] 
     - q * t3 * lambda * S[t] * I3[t] / N_vec[t] 
     - q * t4 * lambda * S[t] * I4[t] / N_vec[t] 
     + z1 * phi1 * I1[t] + z2 * phi2 * I2[t] + z3 * phi3 * I3[t] + z4 * phi4 * I4[t]
     + (1 - l) * alpha * N_vec[t]  
-    - mu0 * S[t]
+    - mu0 * S[t])
 
-  dE1 <- (1 - p) * q * t1 * lambda * S[t] * I1[t] / N_vec[t] 
+  dE1 <- ((1 - p) * q * t1 * lambda * S[t] * I1[t] / N_vec[t] 
        - vL * E1[t]
        + (1 - y1) * (1 - z1) * phi1 * I1[t]
        + l * alpha * (1 - r2 - r3 - r4) * N_vec[t] 
-       - mu0 * E1[t]
+       - mu0 * E1[t])
 
-    dI1 <- q * t1 * lambda * S[t] * I1[t] / N_vec[t] 
+    dI1 <- (q * t1 * lambda * S[t] * I1[t] / N_vec[t] 
          + vL * E1[t]
          - phi1 * I1[t]
          - mu0 * I1[t]
-         - mu * I1[t]
+         - mu * I1[t])
 
-  dE2 <- (1 - p) * q * t2 * lambda * S[t] * I2[t] / N_vec[t] 
+  dE2 <- ((1 - p) * q * t2 * lambda * S[t] * I2[t] / N_vec[t] 
      - vL * E2[t]
      + (1 - y2) * (1 - z2) * phi2 * I2[t]
      + gamma * (1 - z1) * y1 * phi1 * I1[t]
      + l * alpha * r2 * N_vec[t] 
-     - mu0 * E2[t]
+     - mu0 * E2[t])
 
-    dI2 <- q * t2 * lambda * S[t] * I2[t] / N_vec[t] 
+    dI2 <- (q * t2 * lambda * S[t] * I2[t] / N_vec[t] 
          + vL * E2[t]
          - phi2 * I2[t]
          - mu0 * I2[t]
-         - mu * I2[t]
+         - mu * I2[t])
 
-    dE3 <- (1 - p) * q * t3 * lambda * S[t] * I3[t] / N_vec[t] 
+    dE3 <- ((1 - p) * q * t3 * lambda * S[t] * I3[t] / N_vec[t] 
          - vL * E3[t]
          + (1 - y2) * (1 - z3) * phi3 * I3[t]
          + (1 - gamma) * (1 - z1) * y1 * phi1 * I1[t]
          + l * alpha * r3 * N_vec[t] 
-         - mu0 * E3[t]
+         - mu0 * E3[t])
 
 
-    dI3 <- q * t3 * lambda * S[t] * I3[t] / N_vec[t] 
+    dI3 <- (q * t3 * lambda * S[t] * I3[t] / N_vec[t] 
         + vL * E3[t]
         - phi3 * I3[t]
         - mu0 * I3[t]
-        - mu * I3[t]
+        - mu * I3[t])
 
-  dE4 <- (1 - p) * q * t4 * lambda * S[t] * I4[t] / N_vec[t] 
+  dE4 <- ((1 - p) * q * t4 * lambda * S[t] * I4[t] / N_vec[t] 
        - vL * E4[t]
        + (1 - z2) * y2 * phi2 * I2[t]
        + (1 - z3) * y2 * phi3 * I3[t]
        + l * alpha * r4 * N_vec[t] 
-       - mu0 * E4[t]
+       - mu0 * E4[t])
 
-    dI4 <- q * t4 * lambda * S[t] * I4[t] / N_vec[t] 
+    dI4 <- (q * t4 * lambda * S[t] * I4[t] / N_vec[t] 
         + vL * E4[t]
         - phi4 * I4[t]
         - mu0 * I4[t]
-        - mu * I4[t]
+        - mu * I4[t])
 
-  dD <- mu * (I1[t] + I2[t] + I3[t] + I4[t])
+  dD <- (mu * (I1[t] + I2[t] + I3[t] + I4[t]))
 
-  dN <- rho * N_vec[t] 
+  dN <- (rho * N_vec[t] 
      + alpha * N_vec[t]
      - mu * (I1[t] + I2[t] + I3[t] + I4[t]) 
-     - mu0 * N_vec[t]
+     - mu0 * N_vec[t])
+  
 
 
     
@@ -207,7 +213,7 @@ for (t in 1:(length(time) - 1)) {
   
 }
 head(data.frame(
-  Day = time,
+  time = time,
   S = S,
   E1 = E1, 
   I1 = I1,
@@ -223,7 +229,7 @@ head(data.frame(
 
 # Plot
 tb_df <- data.frame(
-  Day = time,
+  time = time,
   S = S,
   E1 = E1, 
   I1 = I1,
@@ -233,23 +239,209 @@ tb_df <- data.frame(
   I3 = I3,
   E4 = E4, 
   I4 = I4,
-  D = D
+  D = D,
+  N = N_vec
 )
 
 tb_long <- pivot_longer(
   tb_df,
-  cols = -Day,
+  cols = -time,
   names_to = "Compartment",
   values_to = "Count"
 )
 
 # Plot
-ggplot(tb_long, aes(x = Day, y = Count, color = Compartment)) +
+ggplot(tb_long, aes(x = time, y = Count, color = Compartment)) +
   geom_line(size = 1) +
   labs(
     title = "Multi-Strain TB Simulation",
     x = "Time (years)",
     y = "Population count"
   ) +
+  theme_minimal()
+```
+
+```{r}
+# deSolve
+library(deSolve)
+rm(list=ls())
+parms <- c(
+  a2 = 0.1,     # Proportion of initial latent TB cases that are H-resistant 
+  a3 = 0.1,     # Proportion of initial latent TB cases that are R-resistant 
+  a4 = 0.1,     # Proportion of initial latent TB cases that are MDR 
+
+  alpha = 0.00425,   # Immigration rate into the US (fixed)
+
+  b = .5,     # Proportion of initial active TB cases that are drug-susceptible 
+
+  gamma = .5,  # Proportion of H-resistance acquisition cases 
+
+  l = 0.1,      # Proportion of immigrants that have LTBI 
+
+  lambda = .5,  # Effective contact rate 
+
+  mu = 0.05,    # TB-specific mortality rate 
+  mu0 = 0.013,  # Background (non-TB) mortality rate (fixed)
+
+  p = 0.2,      # Proportion of exogenous infections that are acute 
+
+  phi1 = 0.2,  # Rate of end of treatment for DS TB 
+  phi2 = 0.2,   # Rate of end of treatment for H-resistant TB 
+  phi3 = 0.1,  # Rate of end of treatment for R-resistant TB
+  phi4 = 0.1,   # Rate of end of treatment for MDR TB 
+
+  q = 0.1,      # Proportion of active TB cases that are infectious 
+  
+  r2 = 0.1,     # Proportion of immigrant H-resistant LTBI cases
+  r3 = 0.1,     # Proportion of immigrant R-resistant LTBI cases 
+  r4 = 0.1,     # Proportion of immigrant MDR LTBI cases 
+
+  rho = 0.0179, # US birth rate (fixed)
+
+  t1 = 0.05,    # Time in treatment for DS 
+  t2 = 0.05,    # Time in treatment for H-resistant 
+  t3 = 0.05,    # Time in treatment for R-resistant
+  t4 = 0.05,    # Time in treatment for MDR 
+
+  vL = 0.005,   # Progression rate from latent to active TB 
+
+  y1 = 0.05,    # Failed treatment leading to H/R resistance from DS 
+  y2 = 0.05,    # Failed treatment leading to MDR from H- or R-resistant TB 
+
+
+  z1 = 0.6,    # Success rate of DS TB treatment 
+  z2 = 0.6,     # Success rate of H-resistant TB treatment 
+  z3 = 0.6,     # Success rate of R-resistant TB treatment
+  z4 = 0.4    # Success rate of MDR TB treatment 
+)
+
+E1_initial <- 1 # Latent DS
+I1_initial <- 7 # Infectious DS
+
+E2_initial <- 1 # Latent H-resistant
+I2_initial <- 2 # Infectious H-resistant
+
+E3_initial <- 1 # Latent R-resistant
+I3_initial <- 5 # Infectious R-resistant
+
+E4_initial <- 1 # Latent MDR
+I4_initial <- 9 # Infectious MDR
+
+D_initial <- 0 # Initial deaths
+
+N_initial <- 100      # total US population
+
+S_initial <- N_initial - (
+  E1_initial + I1_initial +
+  E2_initial + I2_initial +
+  E3_initial + I3_initial +
+  E4_initial + I4_initial +
+  D_initial
+)
+
+state_ini <- c(
+  S  = S_initial,
+  E1 = E1_initial, 
+  I1 = I1_initial,
+  E2 = E2_initial, 
+  I2 = I2_initial,
+  E3 = E3_initial, 
+  I3 = I3_initial,
+  E4 = E4_initial, 
+  I4 = I4_initial,
+  D  = D_initial,
+  N  = N_initial
+)
+
+tb_model <- function(t, state, parms) {
+  with(as.list(c(state, parms)), {
+    
+    dS  <- (rho * N -
+            q*t1*lambda * S*I1/N -
+            q*t2*lambda * S*I2/N -
+            q*t3*lambda * S*I3/N -
+            q*t4*lambda * S*I4/N +
+            z1*phi1*I1 + z2*phi2*I2 + z3*phi3*I3 + z4*phi4*I4 +
+            (1 - l)*alpha*N -
+            mu0*S)
+
+    dE1 <- ((1 - p)*q*t1*lambda * S*I1/N -
+            vL * E1 +
+            (1 - y1)*(1 - z1)*phi1 * I1 +
+            l*alpha*(1 - r2 - r3 - r4)*N -
+            mu0*E1)
+
+    dI1 <- (q*t1*lambda * S*I1/N +
+            vL*E1 -
+            phi1*I1 -
+            mu0*I1 -
+            mu*I1)
+
+    dE2 <- ((1 - p)*q*t2*lambda * S*I2/N -
+            vL * E2 +
+            (1 - y2)*(1 - z2)*phi2 * I2 +
+            gamma*(1 - z1)*y1*phi1 * I1 +
+            l*alpha*r2*N -
+            mu0*E2)
+
+    dI2 <- (q*t2*lambda * S*I2/N +
+            vL*E2 -
+            phi2*I2 -
+            mu0*I2 -
+            mu*I2)
+
+    dE3 <- ((1 - p)*q*t3*lambda * S*I3/N -
+            vL * E3 +
+            (1 - y2)*(1 - z3)*phi3 * I3 +
+            (1 - gamma)*(1 - z1)*y1*phi1 * I1 +
+            l*alpha*r3*N -
+            mu0*E3)
+
+    dI3 <- (q*t3*lambda * S*I3/N +
+            vL*E3 -
+            phi3*I3 -
+            mu0*I3 -
+            mu*I3)
+
+    dE4 <- ((1 - p)*q*t4*lambda * S*I4/N -
+            vL * E4 +
+            (1 - z2)*y2*phi2 * I2 +
+            (1 - z3)*y2*phi3 * I3 +
+            l*alpha*r4*N -
+            mu0*E4)
+
+    dI4 <- (q*t4*lambda * S*I4/N +
+            vL*E4 -
+            phi4*I4 -
+            mu0*I4 -
+            mu*I4)
+
+    dD  <- (mu * (I1 + I2 + I3 + I4))
+
+    dN  <- (rho*N +
+            alpha*N -
+            mu*(I1 + I2 + I3 + I4) -
+            mu0*N)
+
+    list(c(dS, dE1, dI1, dE2, dI2, dE3, dI3, dE4, dI4, dD, dN))
+  })
+}
+
+t = seq(0, 50, 0.01)
+
+out <- ode(
+  y = state_ini,
+  times = t,
+  func = tb_model,
+  parms = parms
+)
+head(out)
+
+# plot
+tb_long2 <- as.data.frame(out) %>%
+  pivot_longer(-time, names_to="Compartment", values_to="Count")
+
+ggplot(tb_long2, aes(time, Count, color=Compartment)) +
+  geom_line() +
   theme_minimal()
 ```
