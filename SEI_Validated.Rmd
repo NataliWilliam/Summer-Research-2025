@@ -25,20 +25,35 @@ OrderedTrials<-as.data.frame(OrderedTrials)
 
 # From CDC data
 
-CDCActiveTotal <- c(25102, 24206, 22726, 21210, 19751, 18286, 17499, 16308, 15945, 15055, 14835, 14499, 14063, 13728, 13282, 12895, 11523, 11161, 10510, 9941, 9565) #CDC Reported Tuberculosis 2013 - Table 2
+CDCActiveTotal <- c(25102, 24206, 22726, 21210, 19751, 18286, 17499, 16308, 15945, 15055, 14835, 14499, 14063, 13728, 13282, 12895, 11523, 11161, 10510, 9941, 9565,9379,9539,9238,9066,8996,8895,7170,7866,8332,9633) #CDC Reported Tuberculosis 2023 - Table 2
 ActiveCasesTotal <- CDCActiveTotal/1000000 #Calculates total active infections from the CDC data
 
-CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555) #CDC Reported Tuberculosis 2013 - Table 1
+CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602+565) #CDC Reported Tuberculosis 2022 - Table 1
 TotalDeaths <- CDCTBDeaths/1000000
 
-CDCTBDeathsNC <- c(1631, 1478, 1336, 1202, 1166, 1112, 930, 776, 764, 784, 711, 662, 648, 644, 554, 590, 529, 569, 536, 510, 555) #CDC Reported Tuberculosis 2013 - Table 1
+CDCTBDeathsNC <- c(1631, 1478, 1336, 1202, 1166, 1112, 930, 776, 764, 784, 711, 662, 648, 644, 554, 590, 529, 569, 536, 510, 555, 493,470,528,515,542,526,600,602,565) #CDC Reported Tuberculosis 2023 - Table 1
 DeathsNC <- CDCTBDeathsNC/1000000
 
-CDCActiveHR <- c(1534, 1543, 1350, 1284, 1195, 1120, 999, 981, 897, 912, 903, 872, 842, 845, 798, 835, 762, 699, 753, 683, 668) #CDC Reported Tuberculosis 2013 - Table 8
+CDCActiveHR <- c(1534, 1543, 1351, 1284, 1195, 1120, 1000, 981, 897, 914, 904, 872, 842, 845, 797, 835, 762, 692, 752, 685, 674, 687, 685,651,632,642,661,461,538,550,589) #CDC Reported Tuberculosis 2023 - Table 8
 ActiveCasesHR <- CDCActiveHR/1000000
 
-CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 114, 105, 127, 86, 96) #CDC Reported Tuberculosis 2013 - Table 9
+CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 114, 105, 127, 86, 96,94,88,97,129,104,94,56,80,99,100) #CDC Reported Tuberculosis 2023 - Table 9
 ActiveCasesMDR <- CDCActiveMDR/1000000
+
+
+length(ActiveCasesTotal)
+length(DeathsNC)
+length(ActiveCasesHR)
+length(ActiveCasesMDR)
 
 ```
 
@@ -50,7 +65,7 @@ ActiveCasesMDR <- CDCActiveMDR/1000000
 
 dt <- 0.1 #The length of each time step (in years) 
 finalYr <- 57 #In years - We only have data from the CDC through 2013
-cutoffYr <- 8/deltaT
+cutoffYr <- 8/dt
 
 time <- seq(0, finalYr, by = dt)
 totT <- length(time) #Time steps
@@ -196,7 +211,6 @@ for (t in 1:(length(time) - 1)) {
 }
 
 head(P)
-
 ```
 
 ```{r}
@@ -205,20 +219,23 @@ head(P)
 
 #Plot model and CDC data for total active cases, HR cases, MDR 
 #cases, and TB deaths on the same plot, using two sets of axes
-years = 1993:2013 #For CDC data where we have through 2013
+
 plot(yrs, (Results$Infectious1*(mu_0+mu+phi1)) +  (Results$Infectious2*(mu_0+mu+phi2)) + (Results$Infectious3*(mu_0+mu+phi3)) +
-(Results$Infectious4*(mu_0+mu+phi4)), main='Fitting Model to Data', xlab='Year',ylab='Total active cases or TB deaths in millions', type='l',col='red', ylim=  c(0,.03)) #Total active cases in the model is the sum of #each I compartment
-points(years,ActiveCasesTotal,col='red')
-years=1993:2013 #For CDC data on TB deaths, where we have through #2012 only
+(Results$Infectious4*(mu_0+mu+phi4)), main='Fitting Model to Data', xlab='Year',ylab='Total active cases or TB deaths in millions', type='l',col='red', ylim=  c(0,.03)) # Total active cases in the model is the sum of # each I compartment
+
+points(1993:2023,ActiveCasesTotal,col='red')
+
+years=1993:2022 #For CDC data on TB deaths, where we have through #2012 only
+
 lines(yrs, Results$Dead, col='black')
 points(years, TotalDeaths,col='black')
 par(new = TRUE) #This uses the right-hand side axis, since HR and 
 #MDR cases exist on a much smaller scale
-years = 1993:2013
+
 plot(yrs, Results$Infectious2*(mu_0+mu+phi2), axes = FALSE,  bty = "n", xlab = "", ylab = "", col='blue', ylim=c(0,0.001), type='l')
-points(years,ActiveCasesHR, col='blue')
+points(1993:2023,ActiveCasesHR, col='blue')
 lines(yrs,Results$Infectious4*(mu_0+mu+phi4),col='green')
-points(years,ActiveCasesMDR,col='green')
+points(1993:2023,ActiveCasesMDR,col='green')
 mtext("Drug-resistant Cases in millions",side=4)
 axis(side=4,at=c(0,0.001))
 legend('top', legend=c(' Total active cases',
