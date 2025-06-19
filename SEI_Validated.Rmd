@@ -1,0 +1,248 @@
+---
+title: "SEI_Validated"
+output: html_document
+---
+
+```{r}
+
+# load in libraries
+
+library(readr)
+library("deSolve")
+library(ggplot2)
+library(tidyr) 
+
+# load in CDC data
+
+OrderedTrials <- read_csv("OrderedTrials.csv")
+View(OrderedTrials)
+
+OrderedTrials<-OrderedTrials[, 2:29]
+
+write.csv(OrderedTrials, file="OrderedTrials.csv")
+
+OrderedTrials<-as.data.frame(OrderedTrials)
+
+# From CDC data
+
+CDCActiveTotal <- c(25102, 24206, 22726, 21210, 19751, 18286, 17499, 16308, 15945, 15055, 14835, 14499, 14063, 13728, 13282, 12895, 11523, 11161, 10510, 9941, 9565,9379,9539,9238,9066,8996,8895,7170,7866,8332,9633) #CDC Reported Tuberculosis 2023 - Table 2
+ActiveCasesTotal <- CDCActiveTotal/1000000 #Calculates total active infections from the CDC data
+
+CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602+565) #CDC Reported Tuberculosis 2022 - Table 1
+TotalDeaths <- CDCTBDeaths/1000000
+
+CDCTBDeathsNC <- c(1631, 1478, 1336, 1202, 1166, 1112, 930, 776, 764, 784, 711, 662, 648, 644, 554, 590, 529, 569, 536, 510, 555, 493,470,528,515,542,526,600,602,565) #CDC Reported Tuberculosis 2023 - Table 1
+DeathsNC <- CDCTBDeathsNC/1000000
+
+CDCActiveHR <- c(1534, 1543, 1351, 1284, 1195, 1120, 1000, 981, 897, 914, 904, 872, 842, 845, 797, 835, 762, 692, 752, 685, 674, 687, 685,651,632,642,661,461,538,550,589) #CDC Reported Tuberculosis 2023 - Table 8
+ActiveCasesHR <- CDCActiveHR/1000000
+
+CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 114, 105, 127, 86, 96,94,88,97,129,104,94,56,80,99,100) #CDC Reported Tuberculosis 2023 - Table 9
+ActiveCasesMDR <- CDCActiveMDR/1000000
+
+
+length(ActiveCasesTotal)
+length(DeathsNC)
+length(ActiveCasesHR)
+length(ActiveCasesMDR)
+
+```
+
+
+
+
+```{r}
+# time setup
+
+dt <- 0.1 #The length of each time step (in years) 
+finalYr <- 57 #In years - We only have data from the CDC through 2013
+cutoffYr <- 8/dt
+
+time <- seq(0, finalYr, by = dt)
+totT <- length(time) #Time steps
+
+yrs <- seq(1993, 1993+finalYr, dt)
+
+# param setup
+
+rho = 0.0179
+mu_0 = 0.013
+alpha = 0.00425
+
+parameters <- vector(mode="numeric", length=27)
+names(parameters) <- c("a2", "a3", "a4", "b", "gamma", "l", "mu", "p", "phi1", "phi2", "phi3", "phi4", "ql", "r1", "r2", "r3", "trt1", "trt2", "trt3", "trt4", "v_L", "y1", "y2", "z1", "z2", "z3", "z4")
+
+parameters<-OrderedTrials[1, 1:27]
+
+    a2 <- as.numeric(parameters[1])
+    a3 <- as.numeric(parameters[2])
+    a4 <- as.numeric(parameters[3])
+    b <- as.numeric(parameters[4])
+    gamma <- as.numeric(parameters[5])
+    l <- as.numeric(parameters[6])
+    mu <- as.numeric(parameters[7])
+    p <- as.numeric(parameters[8])
+    phi1 <- as.numeric(parameters[9])
+    phi2 <- as.numeric(parameters[10])
+    phi3 <- as.numeric(parameters[11])
+    phi4 <- as.numeric(parameters[12])
+    ql <- as.numeric(parameters[13])
+    r1 <- as.numeric(parameters[14])
+    r2 <- as.numeric(parameters[15])
+    r3 <- as.numeric(parameters[16])
+    trt1 <- as.numeric(parameters[17])
+    trt2 <- as.numeric(parameters[18])
+    trt3 <- as.numeric(parameters[19])
+    trt4 <- as.numeric(parameters[20])
+    v_L <- as.numeric(parameters[21])
+    y1 <- as.numeric(parameters[22])
+    y2 <- as.numeric(parameters[23])
+    z1 <- as.numeric(parameters[24])
+    z2 <- as.numeric(parameters[25])
+    z3 <- as.numeric(parameters[26])
+    z4 <- as.numeric(parameters[27])
+
+# vars setup
+
+S = numeric(length(time))
+E_1 = numeric(length(time))
+I_1 = numeric(length(time))
+E_2 = numeric(length(time))
+I_2 = numeric(length(time))
+E_3 = numeric(length(time))
+I_3 = numeric(length(time))
+E_4 = numeric(length(time))
+I_4 = numeric(length(time))
+D = numeric(length(time))
+N = numeric(length(time))
+
+# init conditions
+
+S <- E_1 <- I_1 <- E_2 <- I_2 <- E_3 <- I_3 <- E_4 <- I_4 <- D <- N <- rep(0, totT) #Sets compartment values to 0
+P <- data.frame(S, E_1, I_1, E_2, I_2, E_3, I_3, E_4, I_4, D, N) #Creates a matrix of compartment values
+    
+    #Total Population
+    P$N[1] <- 280.726081 #From census data
+    #LTBI
+    P$E_1[1] <- 11.213*(1-a2-a3-a4) #Data from Hill
+    P$E_2[1] <- 11.213*a2
+    P$E_3[1] <- 11.213*a3
+    P$E_4[1] <- 11.213*a4
+    #Active TB
+    P$I_1[1] <- (b*(CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1])/(mu_0 + mu + phi1))/1000000 
+    #Method from Hill; The CDC tracks H-Resistant and MDR cases. 
+    #Those leftover are either drug-susceptible or R-resistant (scaled by b and (b-1), respectively) 
+    P$I_2[1] <- (CDCActiveHR[1]/(mu_0 + mu + phi2))/1000000
+    P$I_3[1] <- ((1-b)*(CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1])/(mu_0 + mu + phi3))/1000000
+    P$I_4[1] <- (CDCActiveMDR[1]/(mu_0 + mu + phi4))/1000000
+    #Susceptible Population
+    P$S[1] <- P$N[1] - P$E_1[1] - P$I_1[1] - P$E_2[1] - P$I_2[1] - P$E_3[1] - P$I_3[1] - P$E_4[1] - P$I_4[1]
+    
+    
+head(P)
+```
+
+```{r}
+
+for (t in 1:(length(time) - 1)) { 
+  
+  # differential equations
+  
+   # dS/dT
+      dS <- (rho*P$N[t]) - (ql*trt1*(P$S[t]*P$I_2[t]/P$N[t])) - (ql*trt2*(P$S[t]*P$I_2[t]/P$N[t])) - (ql*trt3*P$S[t]*P$I_3[t]/P$N[t]) - (ql*trt4*(P$S[t]*P$I_4[t]/P$N[t]))
+            + (z1*phi1*P$I_1[t]) + (z2*phi2*P$I_2[t]) + (z3*phi3*P$I_3[t]) + (z4*phi4*P$I_4[t])
+            + (1 - l)*(alpha*P$N[t]) - mu_0*S 
+      
+      # dE_1/dT
+      dE_1 <- (1 - p)*(ql*trt1*(P$S[t]*P$I_1[t]/P$N[t])) - v_L*P$E_1[t] + (1-y1)*(1-z1)*phi1*P$I_1[t] + l*alpha*(1 - r1 - r2 - r3)*P$N[t] - mu_0*E_1[t]
+      
+      # dI_1/dT 
+      dI_1 <- ql*trt1*(P$S[t]*P$I_1[t]/P$N[t]) + v_L*P$E_1[t] - phi1*P$I_1[t] - mu_0*P$I_1[t] - mu*P$I_1[t]
+      
+      # dE_2/dT
+      dE_2 <- (1 - p)*(ql*trt2*(P$S[t]*P$I_2[t]/P$N[t])) - v_L*P$E_2[t] + (1-y1)*(1-z2)*phi2*P$I_2[t] + gamma*(1-z1)*y1*phi1*P$I_1[t] + l*alpha*r1*P$N[t] - mu_0*P$E_2[t]
+      
+      # dI_2/dT
+      dI_2 <- ql*trt2*(P$S[t]*P$I_2[t]/P$N[t]) + v_L*P$E_2[t] - phi2*P$I_2[t] - mu_0*P$I_2[t] - mu*P$I_2[t]
+      
+      # dE_3/dT
+      dE_3 <- (1 - p)*(ql*trt3*(P$S[t]*P$I_3[t]/P$N[t])) - v_L*P$E_3[t] + (1-y1)*(1-z3)*phi3*P$I_3[t] + (1-gamma)*(1-z1)*y1*phi1*P$I_1[t] + l*alpha*r2*P$N[t] - mu_0*P$E_3[t]
+      
+      # dI_3/dT
+      dI_3 <- ql*trt3*(P$S[t]*P$I_3[t]/P$N[t]) + v_L*P$E_3[t] - phi3*P$I_3[t] - mu_0*P$I_3[t] - mu*P$I_3[t]
+      
+      # dE_4/dT
+      dE_4 <- (1 - p)*(ql*trt4*(P$S[t]*P$I_4[t]/P$N[t])) - v_L*P$E_4[t] 
+      + (1-z2)*y1*phi2*P$I_2[t] + (1-z3)*y1*phi3*P$I_3[t] + (1-z4)*phi4*P$I_4[t]
+      + l*alpha*r4*P$N[t] - mu_0*P$E_4[t]
+      
+      # dI_4/dT
+      dI_4 <- ql*trt4*(P$S[t]*P$I_4[t]/P$N[t]) + v_L*P$E_4[t] - phi4*P$I_4[t] - mu_0*P$I_4[t] - mu*P$I_4[t]
+      
+      # dD/dT
+      dD <- mu*(P$I_1[t] + P$I_2[t] + P$I_3[t] + P$I_4[t])
+      
+      # dN/dT
+      dN <- rho*P$N[t] + alpha*P$N[t] - mu*(P$I_1[t] + P$I_2[t] + P$I_3[t] + P$I_4[t]) - mu_0*P$N[t]
+  
+    # Updated values
+      
+    P$S[t + 1] = P$S[t] + dS*dt
+    P$E_1[t + 1] = P$E_1[t] + dE_1*dt
+    P$I_1[t + 1] = P$I_1[t] + dI_1*dt
+    P$E_2[t + 1] = P$E_2[t] + dE_2*dt
+    P$I_2[t + 1] = P$I_2[t] + dI_2*dt
+    P$E_3[t + 1] = P$E_3[t] + dE_3*dt
+    P$I_3[t + 1] = P$I_3[t] + dI_3*dt
+    P$E_4[t + 1] = P$E_4[t] + dE_4*dt
+    P$I_4[t + 1] = P$I_4[t] + dI_4*dt
+    P$D[t + 1] = P$D[t] + dD*dt
+    P$N[t + 1] = P$N[t] + dN*dt
+    
+}
+
+head(P)
+```
+
+```{r}
+
+# plot results
+
+#Plot model and CDC data for total active cases, HR cases, MDR 
+#cases, and TB deaths on the same plot, using two sets of axes
+
+plot(yrs, (Results$Infectious1*(mu_0+mu+phi1)) +  (Results$Infectious2*(mu_0+mu+phi2)) + (Results$Infectious3*(mu_0+mu+phi3)) +
+(Results$Infectious4*(mu_0+mu+phi4)), main='Fitting Model to Data', xlab='Year',ylab='Total active cases or TB deaths in millions', type='l',col='red', ylim=  c(0,.03)) # Total active cases in the model is the sum of # each I compartment
+
+points(1993:2023,ActiveCasesTotal,col='red')
+
+years=1993:2022 #For CDC data on TB deaths, where we have through #2012 only
+
+lines(yrs, Results$Dead, col='black')
+points(years, TotalDeaths,col='black')
+par(new = TRUE) #This uses the right-hand side axis, since HR and 
+#MDR cases exist on a much smaller scale
+
+plot(yrs, Results$Infectious2*(mu_0+mu+phi2), axes = FALSE,  bty = "n", xlab = "", ylab = "", col='blue', ylim=c(0,0.001), type='l')
+points(1993:2023,ActiveCasesHR, col='blue')
+lines(yrs,Results$Infectious4*(mu_0+mu+phi4),col='green')
+points(1993:2023,ActiveCasesMDR,col='green')
+mtext("Drug-resistant Cases in millions",side=4)
+axis(side=4,at=c(0,0.001))
+legend('top', legend=c(' Total active cases',
+                        'H-resistant active cases',
+                        'MDR active cases',
+                        'Cumulative TB deaths'), 
+       col=c('red', 'blue','green', 'black'), lty=c(1,1, 1, 1),cex = 0.6)
+```
+
+
