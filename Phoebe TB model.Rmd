@@ -163,7 +163,7 @@ for (t in 1:(length(time) - 1)) {
 
     dE3 <- ((1 - p) * q * t3 * lambda * S[t] * I3[t] / N_vec[t] 
          - vL * E3[t]
-         + (1 - y2) * (1 - z3) * phi3 * I3[t]
+         (1 - y2) * (1 - z3) * phi3 * I3[t]
          + (1 - gamma) * (1 - z1) * y1 * phi1 * I1[t]
          + l * alpha * r3 * N_vec[t] 
          - mu0 * E3[t])
