@@ -8,71 +8,115 @@ date: "2025-06-05"
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(tidyr)
+library(deSolve)
+
+
 ```
 
 ```{r}
 #parameter setup
+CDCActiveTotal <- c(25102, 24206, 22726, 21210, 19751, 18286, 17499, 16308, 15945, 15055, 14835, 14499, 14063, 13728, 13282, 12895, 11523, 11161, 10510, 9941, 9565) #CDC Reported Tuberculosis 2013 - Table 2
+ActiveCasesTotal <- CDCActiveTotal/1000000 #Calculates total active infections from the CDC data
+
+CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555) #CDC Reported Tuberculosis 2013 - Table 1
+TotalDeaths <- CDCTBDeaths/1000000
+
+CDCTBDeathsNC <- c(1631, 1478, 1336, 1202, 1166, 1112, 930, 776, 764, 784, 711, 662, 648, 644, 554, 590, 529, 569, 536, 510, 555) #CDC Reported Tuberculosis 2013 - Table 1
+DeathsNC <- CDCTBDeathsNC/1000000
+
+CDCActiveHR <- c(1534, 1543, 1350, 1284, 1195, 1120, 999, 981, 897, 912, 903, 872, 842, 845, 798, 835, 762, 699, 753, 683, 668) #CDC Reported Tuberculosis 2013 - Table 8
+ActiveCasesHR <- CDCActiveHR/1000000
+
+CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 114, 105, 127, 86, 96) #CDC Reported Tuberculosis 2013 - Table 9
+ActiveCasesMDR <- CDCActiveMDR/1000000
+
+
+#Set up the parameters
+alpha1 <- 0.105652248 #proportion of initial LTBI cases that are H-resistent
+alpha2 <- 0.131520202 #proportion of initial LTBI cases that are R-resistent
+alpha3 <- 0.070481149 #proportion of initial LTBI cases that are MDR
+
+alpha <- 0.00425 #immigration rate
+beta <- 0.9765406 #proportion of initial active cases that are DS
+gamma <- 0.524266165 #proportion of H-resistance acquisition cases
+iota <- 0.000562594 #proportion of immigrants that have LTBI
+
+#lamda <- 15 #effective contact rate
+mu <- 0.039057410 #TB mortality rate
+mu0 <- 0.013 #mortality rate unrelated to TB
+p <- 0.2922095 #proportion of exogenous infections that are acute
+
+phi1 <- 0.7348457 #rate of end of treatment
+phi2 <- 0.7545017 #rate of end of treatment(H-resistent)
+phi3 <- 0.7938928 #rate of end of treatment (R-resistent)
+phi4 <- 0.3311735 #rate of end of treatment (MDR)
+
+ql <- 29.613758
+
+r2 <- 0.175348553 #proportion of immigrant H-resistent LTBI cases
+r3 <- 0.104873813 #proportion of immigrant R-resistent LTBI cases
+r4 <- 0.181558845 #proportion of immigrant MDR LTBI cases
+
+rho <- 0.0179 #US birth rate
+
+t1 <- 0.083729561 #proportion of treatment time when individuals are infectious (DS)
+t2 <- 0.081051151 #proportion of treatment time when individuals are infectious (H-resistent)
+t3 <- 0.06638698 #proportion of treatment time when individuals are infectious (R-resistent)
+t4 <- 0.004869436 #proportion of treatment time when individuals are infectious (MDR)
+
+vL <- 0.000098600 #progression rate from latent to active infection
+y1 <- 0.251006296 #proportion of failed treatments for DS TB that result in H- or R- resistance
+y2 <- 0.492070759 #proportion of failed treatments for H- or R-resistant TB that result in MDR
+
+z1 <- 0.8689962 #proportion of treatment courses for DS TB that are successful
+z2 <- 0.5278056 #proportion of treatment courses for H-resistent TB that are successful
+z3 <- 0.7935086 #proportion of treatment courses for R-resistent TB that are successful
+z4 <- 0.4461324 #proportion of treatment courses for MDR TB that are successful
+
+deltaT <- 0.1 #The length of each time step (in years) 
+finalYr <- 57 #In years - We only have data from the CDC through 2013
+totT <- finalYr/deltaT #Time steps
+cutoffYr <- 8/deltaT
+
+
+ generateResults <- function(mres) {
+  with(as.list(parms), {
+    Susceptible <- mres$S
+    Exposed1 <- mres$E1
+    Infectious1 <- mres$I1
+    Exposed2 <- mres$E2
+    Infectious2 <- mres$I2
+    Exposed3 <- mres$E3
+    Infectious3 <- mres$I3
+    Exposed4 <- mres$E4
+    Infectious4 <- mres$I4
+    Dead <- mres$D
+    Total <- mres$S + mres$E1 + mres$I1 + mres$E2 + mres$I2 + mres$E3 + mres$I3 + mres$E4 + mres$I4
+    InfectiousTotal <- mres$I1 + mres$I2 + mres$I3 + mres$I4 
+    return(data.frame(Susceptible, Exposed1, Infectious1, Exposed2, Infectious2, Exposed3, Infectious3, Exposed4, Infectious4, Total, Dead, InfectiousTotal))
+  })
+ }
+ 
+ 
 
 #Total Population
-N_initial <- 1000
+N_initial <- 280.726081
 
 #Initial Values
-I_1_initial <- 7 #the number of individuals actively infected with DS TB
-E_1_initial <- 0 #the number of individuals latently infected with DS TB
-I_2_initial <- 5 #the number of individuals actively infected with H-resistent TB
-E_2_initial <- 0 #the number of individuals latently infected with H-resistent TB
-I_3_initial <- 8 #the number of individuals actively infected with R-resistent TB
-E_3_initial <- 0 #the number of individuals latently infected with R-resistent TB
-I_4_initial <- 6 #the number of individuals actively infected with MDR TB
-E_4_initial <- 0 #the number of individuals latently infected with MDR TB
+I_1_initial <- (beta*(CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1])/(mu0 + mu + phi1))/1000000 #the number of individuals actively infected with DS TB
+E_1_initial <- 11.213*(1-alpha1-alpha2-alpha3) #the number of individuals latently infected with DS TB
+I_2_initial <- (CDCActiveHR[1]/(mu0 + mu + phi2))/1000000 #the number of individuals actively infected with H-resistent TB
+E_2_initial <- 11.213*alpha1 #the number of individuals latently infected with H-resistent TB
+I_3_initial <- ((1-beta)*(CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1])/(mu0 + mu + phi3))/1000000 #the number of individuals actively infected with R-resistent TB
+E_3_initial <- 11.213 * alpha2 #the number of individuals latently infected with R-resistent TB
+I_4_initial <- (CDCActiveMDR[1]/(mu0 + mu + phi4))/1000000 #the number of individuals actively infected with MDR TB
+E_4_initial <- 11.213*alpha3 #the number of individuals latently infected with MDR TB
 D_initial <- 0 #the number of deaths caused by TB
 S_initial <- N_initial - I_1_initial - E_1_initial - I_2_initial - E_2_initial - I_3_initial - E_3_initial - I_4_initial - E_4_initial - D_initial #everyone else is susceptible
 
 #Set up the time
 years <- 300
 time <- seq(0, years, by = 1)
-
-#Set up the parameters
-alpha1 <- 0.1 #proportion of initial LTBI cases that are H-resistent
-alpha2 <- 0.1 #proportion of initial LTBI cases that are R-resistent
-alpha3 <- 0.1 #proportion of initial LTBI cases that are MDR
-
-alpha <- 0.00425 #immigration rate
-beta <- 0.75 #proportion of initial active cases that are DS
-gamma <- 0.5 #proportion of H-resistance acquisition cases
-iota <- 0.15 #proportion of immigrants that have LTBI
-
-lamda <- 15 #effective contact rate
-mu <- 0.25 #TB mortality rate
-mu0 <- 0.013 #mortality rate unrelated to TB
-p <- 0.15 #proportion of exogenous infections that are acute
-
-phi1 <- 0.75 #rate of end of treatment
-phi2 <- 0.7 #rate of end of treatment(H-resistent)
-phi3 <- 0.43 #rate of end of treatment (R-resistent)
-phi4 <- 0.4 #rate of end of treatment (MDR)
-
-q <- 0.5 #proportion of active cases that have the potential to be infectious
-
-r2 <- 0.1 #proportion of immigrant H-resistent LTBI cases
-r3 <- 0.1 #proportion of immigrant R-resistent LTBI cases
-r4 <- 0.1 #proportion of immigrant MDR LTBI cases
-
-rho <- 0.0179 #US birth rate
-
-t1 <- 0.05 #proportion of treatment time when individuals are infectious (DS)
-t2 <- 0.05 #proportion of treatment time when individuals are infectious (H-resistent)
-t3 <- 0.05 #proportion of treatment time when individuals are infectious (R-resistent)
-t4 <- 0.05 #proportion of treatment time when individuals are infectious (MDR)
-
-vL <- 0.005 #progression rate from latent to active infection
-y1 <- 0.5 #proportion of failed treatments for DS TB that result in H- or R- resistance
-y2 <- 0.5 #proportion of failed treatments for H- or R-resistant TB that result in MDR
-
-z1 <- 0.75 #proportion of treatment courses for DS TB that are successful
-z2 <- 0.7 #proportion of treatment courses for H-resistent TB that are successful
-z3 <- 0.7 #proportion of treatment courses for R-resistent TB that are successful
-z4 <- 0.45 #proportion of treatment courses for MDR TB that are successful
 ```
 
 ```{r}
@@ -106,16 +150,16 @@ N[1] <- N_initial
 ```{r}
 #Simulation
 for(t in 1:(length(time) - 1)) {
-    dS <- (rho * N[t]) - (q * t1 * lamda * ( (S[t] * I_1[t]) / N[t] ))  - (q * t2 * lamda * ( (S[t] * I_2[t]) / N[t]) ) - (q * t3 * lamda * ( (S[t] * I_3[t]) / N[t]) ) - (q * t4 * lamda * ( (S[t] * I_4[t]) / N[t]) ) + ( z1 * phi1 * I_1[t] ) + ( z2 * phi2 * I_2[t] ) + ( z3 * phi3 * I_3[t] ) - (mu0 * S[t])
-    dE_1 <- ((1 - p) * q * t2 * lamda * ((S[t] * I_1[t]) / N[t])) - (vL * E_1[t]) + ((1 - y1) * (1 - z1) * phi1 * I_1[t]) + (iota * alpha * (1 - r2 - r3 - r4) * N[t]) - (mu0 * E_1[t])
-    dI_1 <- (q * t1 * lamda * ((S[t] * I_1[t]) / N[t])) + (q * vL * E_1[t]) - (phi1 * I_1[t]) - (mu0 * I_1[t]) - (mu * I_1[t])
-    dE_2 <- ((1 - p) * q * t2 * lamda * ((S[t] * I_2[t]) / N[t])) - (vL * E_2[t]) + ((1 - y2) * (1 - z2) * phi2 * I_2[t]) + (gamma * (1 - z1) * y1 * phi1 * I_1[t]) + (iota * alpha * r2 * N[t]) - (mu0 * E_2[t])
-    dI_2 <- (q * t2 * lamda * ((S[t] * I_2[t])/N[t])) + (vL * E_2[t]) - (phi2 * I_2[t]) - (mu0 * I_2[t]) - (mu * I_2[t])
+    dS <- (rho * N[t]) - (ql * t1  * ( (S[t] * I_1[t]) / N[t] ))  - (ql * t2 * ( (S[t] * I_2[t]) / N[t]) ) - (ql * t3 * ( (S[t] * I_3[t]) / N[t]) ) - (ql * t4 * ( (S[t] * I_4[t]) / N[t]) ) + ( z1 * phi1 * I_1[t] ) + ( z2 * phi2 * I_2[t] ) + ( z3 * phi3 * I_3[t] ) - (mu0 * S[t])
+    dE_1 <- ((1 - p) * ql * t2 * ((S[t] * I_1[t]) / N[t])) - (vL * E_1[t]) + ((1 - y1) * (1 - z1) * phi1 * I_1[t]) + (iota * alpha * (1 - r2 - r3 - r4) * N[t]) - (mu0 * E_1[t])
+    dI_1 <- (p * ql * t1 * ((S[t] * I_1[t]) / N[t])) + (vL * E_1[t]) - (phi1 * I_1[t]) - (mu0 * I_1[t]) - (mu * I_1[t])
+    dE_2 <- ((1 - p) * ql * t2 * ((S[t] * I_2[t]) / N[t])) - (vL * E_2[t]) + ((1 - y2) * (1 - z2) * phi2 * I_2[t]) + (gamma * (1 - z1) * y1 * phi1 * I_1[t]) + (iota * alpha * r2 * N[t]) - (mu0 * E_2[t])
+    dI_2 <- (p * ql * t2 * ((S[t] * I_2[t])/N[t])) + (vL * E_2[t]) - (phi2 * I_2[t]) - (mu0 * I_2[t]) - (mu * I_2[t])
              
-    dE_3 <- ((1 - p) * q * t3 * lamda * ((S[t] * I_3[t])/N[t])) - (vL * E_3[t]) + ((1 - y2) * (1 - z3) * phi3 * I_3[t]) + ((1 - gamma) * (1 - z1) * y1 * phi1 * I_1[t]) + (iota * alpha * r3 * N[t]) - (mu0 * E_3[t])
-    dI_3 <- (q * t3 * lamda * ((S[t] * I_3[t]) / N[t])) + (vL * E_3[t]) - (phi3 * I_3[t]) - (mu0 * I_3[t]) - (mu * I_3[t])
-    dE_4 <- ((1 - p) * q * t4 * lamda * ((S[t] * I_4[t]) / N[t])) - (vL * E_4[t]) + ((1 - z2) * y2 * phi2 * I_2[t]) + ((1 - z3) * y2 * phi3 * I_3[t]) + ((1 - z4) * phi4 * I_4[t]) + (iota * alpha * r4 * N[t]) - (mu0 * E_4[t])
-    dI_4 <- (q * t4 * lamda * ((S[t] * I_4[t]) / N[t])) + (vL * E_4[t]) - (phi4 * I_4[t]) - (mu0 * I_4[t]) - (mu * I_4[t])
+    dE_3 <- ((1 - p) * ql * t3 * ((S[t] * I_3[t])/N[t])) - (vL * E_3[t]) + ((1 - y2) * (1 - z3) * phi3 * I_3[t]) + ((1 - gamma) * (1 - z1) * y1 * phi1 * I_1[t]) + (iota * alpha * r3 * N[t]) - (mu0 * E_3[t])
+    dI_3 <- (p * ql * t3 * ((S[t] * I_3[t]) / N[t])) + (vL * E_3[t]) - (phi3 * I_3[t]) - (mu0 * I_3[t]) - (mu * I_3[t])
+    dE_4 <- ((1 - p) * ql * t4 * ((S[t] * I_4[t]) / N[t])) - (vL * E_4[t]) + ((1 - z2) * y2 * phi2 * I_2[t]) + ((1 - z3) * y2 * phi3 * I_3[t]) + ((1 - z4) * phi4 * I_4[t]) + (iota * alpha * r4 * N[t]) - (mu0 * E_4[t])
+    dI_4 <- (p * ql * t4 * ((S[t] * I_4[t]) / N[t])) + (vL * E_4[t]) - (phi4 * I_4[t]) - (mu0 * I_4[t]) - (mu * I_4[t])
     dD <- (mu * (I_1[t] + I_2[t] + I_3[t] + I_4[t]))
     dN <- (rho * N[t]) + (alpha * N[t]) - (mu * (I_1[t] + I_2[t] + I_3[t] + I_4[t])) - (mu0 * N[t])
     
@@ -137,27 +181,78 @@ table <- data.frame (Day = time, S = S, E_1 = E_1, I_1 = I_1, E_2 = E_2, I_2 = I
 head(table)
 ```
 
+```{r}
+hill <- function(initial=cutoffYr+1, final=totT+1, dataSet=P) {
+  # recursive=TRUE collapses dataframe to labeled vector
+  initv <- c(dataSet[initial,], recursive=TRUE)
+  # times = data points to be calculated
+  times <- initial:final*deltaT
+  # compute master results
+  mres <- lsoda(initv, times, table, parms)
+  # mres[,-1] = mres without 1st column
+  dataSet[initial:final,] <- c(mres[,-1])
+  return(dataSet)
+}
+```
+
+```{r}
+# Initial conditions
+    S <- E1 <- I1 <- E2 <- I2 <- E3 <- I3 <- E4 <- I4 <- D <- N <- rep(0,totT) #Sets compartment values to 0
+    P <- data.frame(S, E1, I1, E2, I2, E3, I3, E4, I4, D, N) #Creates a matrix of compartment values
+    
+     #Total Population
+    P$N[1] <- 280.726081 #From census data
+    #LTBI
+    P$E1[1] <- 11.213*(1-alpha1-alpha2-alpha3) #Data from Hill
+    P$E2[1] <- 11.213*alpha1
+    P$E3[1] <- 11.213*alpha2
+    P$E4[1] <- 11.213*alpha3
+    #Active TB
+    P$I1[1] <- (beta*(CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1])/(mu0 + mu + phi1))/1000000 
+    #Method from Hill; The CDC tracks H-Resistant and MDR cases. 
+    #Those leftover are either drug-susceptible or R-resistant (scaled by b and (b-1), respectively) 
+    P$I2[1] <- (CDCActiveHR[1]/(mu0 + mu + phi2))/1000000
+    P$I3[1] <- ((1-beta)*(CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1])/(mu0 + mu + phi3))/1000000
+    P$I4[1] <- (CDCActiveMDR[1]/(mu0 + mu + phi4))/1000000
+    #Susceptible Population
+    P$S[1] <- P$N[1] - P$E1[1] - P$I1[1] - P$E2[1] - P$I2[1] - P$E3[1] - P$I3[1] - P$E4[1] - P$I4[1]
+#######################################
+
+    parms <- c(rho=rho, mu0=mu0, alpha=alpha, alpha1=alpha1, alpha2=alpha2, alpha3=alpha3, beta=beta, gamma=gamma, iota=iota, mu=mu, p=p, phi1=phi1, phi2=phi2, phi3=phi3, phi4=phi4, ql = ql , r2=r2, r3=r3, r4=r4, t1=t1, t2=t2, t3=t3, t4=t4, vL=vL,y1=y1, y2=y2, z1=z1, z2=z2, z3=z3, z4=z4) 
+    #This 'parms' vector is redundant, but needed for some of the ODE functions
+    
+    yrs <- seq(1993, 1993+finalYr, deltaT)
+    
+    P <- hill(1, totT+1)
+    Results <- generateResults(P)
+```
+
 
 ```{r}
 
-sei_long <- pivot_longer(
-  table,
-  cols = c("S", "E_1", "I_1", "E_2", "I_2", "E_3", "I_3", "E_4", "I_4", "D", "N"),
-  names_to = "Compartments",
-  values_to = "Count"
-)
+#Plot model and CDC data for total active cases, HR cases, MDR 
+#cases, and TB deaths on the same plot, using two sets of axes
+years = time #For CDC data where we have through 2013
+plot(yrs, (Results$Infectious1*(mu0+mu+phi1)) +  (Results$Infectious2*(mu0+mu+phi2)) + (Results$Infectious3*(mu0+mu+phi3)) + (Results$Infectious4*(mu0+mu+phi4)), main='Fitting Model to Data', xlab='Year',ylab='Total active cases or TB deaths in millions', type='l',col='red', ylim=  c(0,.03)) #Total active cases in the model is the sum of #each I compartment
+points(years,ActiveCasesTotal,col='red')
+years=1993:2013 #For CDC data on TB deaths, where we have through #2012 only
+lines(yrs, Results$Dead, col='black')
+points(years, TotalDeaths,col='black')
+par(new = TRUE) #This uses the right-hand side axis, since HR and 
+#MDR cases exist on a much smaller scale
+years = 1993:2013
+plot(yrs, Results$Infectious2*(mu0+mu+phi2), axes = FALSE,  bty = "n", xlab = "", ylab = "", col='blue', ylim=c(0,0.001), type='l')
+points(years,ActiveCasesHR, col='blue')
+lines(yrs,Results$Infectious4*(mu0+mu+phi4),col='green')
+points(years,ActiveCasesMDR,col='green')
+mtext("Drug-resistant Cases in millions",side=4)
+axis(side=4,at=c(0,0.001))
+legend('top', legend=c(' Total active cases',
+                        'H-resistant active cases',
+                        'MDR active cases',
+                        'Cumulative TB deaths'), 
+       col=c('red', 'blue','green', 'black'), lty=c(1,1, 1, 1),cex = 0.6)
 
-ggplot(data = sei_long,
-       mapping = aes(x = Day, y = Count, color = Compartments)) + 
-       geom_line(size = 1.0) +
-  labs (
-    title = "SEI MODEL SIMULATION",
-    x = "Time(days)",
-    y = "Number of Individuals"
-       ) + 
-  theme_minimal() +
-  theme(legend.position = "bottom") +
-  scale_color_brewer(palette = "Paired")
 
 ```
 
