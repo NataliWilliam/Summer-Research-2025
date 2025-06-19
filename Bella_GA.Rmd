@@ -1,0 +1,436 @@
+---
+title: "Bella_GA"
+output: pdf_document
+---
+
+## Genetic algorithm coded from scratch
+Notes:
+* Still needs to be debugged
+* Still need to figure out how we select the most fit individuals from each generation: do we just use one metric (e.g. deaths) or all 4 that we have CDC data for? How will we weigh different metrics in our assessment?
+
+```{r}
+
+# constants
+rho <- 0.0179
+mu_0 <- 0.013
+alpha <- 0.00425
+  
+dt <- 0.1 # The length of each time step (in years) 
+finalYr <- 30 # In years - We only have data from the CDC through 2013
+totT <- finalYr/dt # Time steps
+cutoffYr <- 8/dt
+
+# From CDC data
+
+CDCActiveTotal <- c(25102, 24206, 22726, 21210, 19751, 18286, 17499, 16308, 15945, 15055, 14835, 14499, 14063, 13728, 13282, 12895, 11523, 11161, 10510, 9941, 9565,9379,9539,9238,9066,8996,8895,7170,7866,8332) #CDC Reported Tuberculosis 2022 - Table 2
+ActiveCasesTotal <- CDCActiveTotal/1000000 #Calculates total active infections from the CDC data
+
+CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602+565) #CDC Reported Tuberculosis 2022 - Table 1
+TotalDeaths <- CDCTBDeaths/1000000
+
+CDCTBDeathsNC <- c(1631, 1478, 1336, 1202, 1166, 1112, 930, 776, 764, 784, 711, 662, 648, 644, 554, 590, 529, 569, 536, 510, 555, 493,470,528,515,542,526,600,602,565) #CDC Reported Tuberculosis 2022 - Table 1
+DeathsNC <- CDCTBDeathsNC/1000000
+
+CDCActiveHR <- c(1534, 1543, 1351, 1284, 1195, 1120, 1000, 981, 897, 914, 904, 872, 842, 845, 797, 835, 762, 692, 752, 685, 674, 687, 685,651,632,642,661,461,538,550) #CDC Reported Tuberculosis 2022 - Table 8
+ActiveCasesHR <- CDCActiveHR/1000000
+
+CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 114, 105, 127, 86, 96,94,88,97,129,104,94,56,80,99) #CDC Reported Tuberculosis 2022 - Table 9
+ActiveCasesMDR <- CDCActiveMDR/1000000
+
+
+# check that all vectors are the same length
+length(ActiveCasesTotal)
+length(DeathsNC)
+length(ActiveCasesHR)
+length(ActiveCasesMDR)
+```
+
+## Coding a genetic algorithm from scratch
+
+Steps:
+
+-   Randomly initialize a population (sets of parameters)
+
+-   Determine the fitness of each set of parameters in the initial population
+
+-   Until convergence, repeat:
+
+    -   Select parents from the population (n best fitting sets of parameters)
+
+    -   Crossover and generate a new population (randomly select param from each parent to create a new set of parameters for each pair)
+
+    -   Perform mutation on new population
+
+    -   Calculate fitness for new population
+
+## Get param names and plausible ranges
+
+Questions:
+
+> Plausible ranges are based on literature up to 2014, so do we need to update the parameter ranges based on literature up to 2025?
+
+```{r}
+
+# List the plausible range of values for each parameter
+
+parm_ranges <- list(
+  
+  a2 = c(0, 0.2),
+  a3 = c(0, 0.2),
+  a4 = c(0, 0.2),
+  
+  b = c(0.5, 1),
+  
+  gamma = c(0, 1),
+  
+  l = c(0, 0.3),
+  
+  ql = c(0, 30),
+  
+  mu = c(0, 0.5),
+  
+  p = c(0, 0.3),
+  
+  phi1 = c(0.6, 0.9),
+  phi2 = c(0.5, 0.9),
+  phi3 = c(0.36, 0.5),
+  phi4 = c(0.3, 0.5),
+  
+  r2 = c(0, 0.2),
+  r3 = c(0, 0.2),
+  r4 = c(0, 0.2),
+  
+  trt1 = c(0 ,0.1),
+  trt2 = c(0, 0.1),
+  trt3 = c(0 ,0.1),
+  trt4 = c(0, 0.1),
+  
+  v_L = c(0, 0.01),
+  
+  y1 = c(0, 1),
+  y2 = c(0, 1),
+  
+  z1 = c(0.6, 0.9),
+  z2 = c(0.5, 0.9),
+  z3 = c(0.5, 0.9),
+  z4 = c(0.1, 0.8)
+  
+)
+
+# get parameter names
+
+parm_names <- names(parm_ranges)
+
+```
+
+## Generating the initial "population"
+
+> input: n (pop size), parm names, parm ranges
+>
+> output: dataframe/matrix with a col for each parm and row for each individual
+>
+> function generates n individuals by choosing each parm value UNIFORMLY AT RANDOM
+
+```{r}
+
+# Define a function that generates a population of n sets of 27 parameters
+
+generate_pop <- function(n, parm_names, parm_ranges) {
+  pop <- data.frame(matrix(NA, nrow = n, ncol = length(parm_names)))
+  colnames(pop) <- parm_names
+  for (p in parm_names) { # for each parameter
+    bounds <- parm_ranges[[p]] # get upper and lower bound of this parameter
+    pop[[p]] <- runif(n, bounds[1], bounds[2]) # generate n values of this parameter, uniformly at random between its bounds
+  }
+  return(pop)
+}
+
+# test population to see if this helper function works
+n <- 5
+pop1 <- generate_pop(n, parm_names, parm_ranges)
+pop1
+
+```
+
+## Evaluate fitness using the sum of squares error function
+
+Since we need to run the CDE model to evaluate fitness, we need a function that runs the CDE model:
+
+```{r}
+
+# run CDE model with given set of parameters 
+
+run_model <- function(parms, dt, finalYr) {
+  
+  # assign names to GA parameter vector
+  names(parms) <- parm_names
+  
+  # use parms list to solve the differential equations
+  with(as.list(parms), {
+    
+    # time setup 
+    time <- seq(0, finalYr, dt)
+    totT <- length(time)
+    
+    # initialize compartments as vectors of lenght totT w/ elements all 0
+    S <- E_1 <- I_1 <- E_2 <- I_2 <- E_3 <- I_3 <- E_4 <- I_4 <- D <- N <- rep(0, totT)
+    
+    # init data frame of results
+    P <- data.frame(S, E_1, I_1, E_2, I_2, E_3, I_3, E_4, I_4, D, N)
+    
+    # initial conditions (IMPORTED FROM ELLIE'S CODE)
+     
+    #Total Population
+    P$N[1] <- 280.726081 #From census data
+    
+    #LTBI
+    P$E_1[1] <- 11.213*(1-a2-a3-a4) #Data from Hill
+    P$E_2[1] <- 11.213*a2
+    P$E_3[1] <- 11.213*a3
+    P$E_4[1] <- 11.213*a4
+    
+    # Active TB
+    P$I_1[1] <- (b*(CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1])/(mu_0 + mu + phi1))/1000000 
+    
+    # Method from Hill; The CDC tracks H-Resistant and MDR cases. 
+    # Those leftover are either drug-susceptible or R-resistant (scaled by b and (b-1), respectively) 
+    P$I_2[1] <- (CDCActiveHR[1]/(mu_0 + mu + phi2))/1000000
+    P$I_3[1] <- ((1-b)*(CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1])/(mu_0 + mu + phi3))/1000000
+    P$I_4[1] <- (CDCActiveMDR[1]/(mu_0 + mu + phi4))/1000000
+    
+    # Susceptible Population
+    P$S[1] <- P$N[1] - P$E_1[1] - P$I_1[1] - P$E_2[1] - P$I_2[1] - P$E_3[1] - P$I_3[1] - P$E_4[1] - P$I_4[1]
+    
+    
+    # For loop to solve diffeqs
+    for (t in 1:(totT - 1)) {
+      
+      # dS/dT
+      dS <- (rho*P$N[t]) - (ql*trt1*(P$S[t]*P$I_2[t]/P$N[t])) - (ql*trt2*(P$S[t]*P$I_2[t]/P$N[t])) - (ql*trt3*P$S[t]*P$I_3[t]/P$N[t]) - (ql*trt4*(P$S[t]*P$I_4[t]/P$N[t]))
+            + (z1*phi1*P$I_1[t]) + (z2*phi2*P$I_2[t]) + (z3*phi3*P$I_3[t]) + (z4*phi4*P$I_4[t])
+            + (1 - l)*(alpha*P$N[t]) - mu_0*S 
+      
+      # dE_1/dT
+      dE_1 <- (1 - p)*(ql*trt1*(P$S[t]*P$I_1[t]/P$N[t])) - v_L*P$E_1[t] + (1-y1)*(1-z1)*phi1*P$I_1[t] + l*alpha*(1 - r2 - r3 - r4)*P$N[t] - mu_0*E_1[t]
+      
+      # dI_1/dT 
+      dI_1 <- ql*trt1*(P$S[t]*P$I_1[t]/P$N[t]) + v_L*P$E_1[t] - phi1*P$I_1[t] - mu_0*P$I_1[t] - mu*P$I_1[t]
+      
+      # dE_2/dT
+      dE_2 <- (1 - p)*(ql*trt2*(P$S[t]*P$I_2[t]/P$N[t])) - v_L*P$E_2[t] + (1-y1)*(1-z2)*phi2*P$I_2[t] + gamma*(1-z1)*y1*phi1*P$I_1[t] + l*alpha*r2*P$N[t] - mu_0*P$E_2[t]
+      
+      # dI_2/dT
+      dI_2 <- ql*trt2*(P$S[t]*P$I_2[t]/P$N[t]) + v_L*P$E_2[t] - phi2*P$I_2[t] - mu_0*P$I_2[t] - mu*P$I_2[t]
+      
+      # dE_3/dT
+      dE_3 <- (1 - p)*(ql*trt3*(P$S[t]*P$I_3[t]/P$N[t])) - v_L*P$E_3[t] + (1-y1)*(1-z3)*phi3*P$I_3[t] + (1-gamma)*(1-z1)*y1*phi1*P$I_1[t] + l*alpha*r3*P$N[t] - mu_0*P$E_3[t]
+      
+      # dI_3/dT
+      dI_3 <- ql*trt3*(P$S[t]*P$I_3[t]/P$N[t]) + v_L*P$E_3[t] - phi3*P$I_3[t] - mu_0*P$I_3[t] - mu*P$I_3[t]
+      
+      # dE_4/dT
+      dE_4 <- (1 - p)*(ql*trt4*(P$S[t]*P$I_4[t]/P$N[t])) - v_L*P$E_4[t] 
+      + (1-z2)*y1*phi2*P$I_2[t] + (1-z3)*y1*phi3*P$I_3[t] + (1-z4)*phi4*P$I_4[t]
+      + l*alpha*r4*P$N[t] - mu_0*P$E_4[t]
+      
+      # dI_4/dT
+      dI_4 <- ql*trt4*(P$S[t]*P$I_4[t]/P$N[t]) + v_L*P$E_4[t] - phi4*P$I_4[t] - mu_0*P$I_4[t] - mu*P$I_4[t]
+      
+      # dD/dT
+      dD <- mu*(P$I_1[t] + P$I_2[t] + P$I_3[t] + P$I_4[t])
+      
+      # dN/dT
+      dN <- rho*P$N[t] + alpha*P$N[t] - mu*(P$I_1[t] + P$I_2[t] + P$I_3[t] + P$I_4[t]) - mu_0*P$N[t]
+  
+    # Updated values
+      
+    P$S[t + 1] = P$S[t] + dS*dt
+    P$E_1[t + 1] = P$E_1[t] + dE_1*dt
+    P$I_1[t + 1] = P$I_1[t] + dI_1*dt
+    P$E_2[t + 1] = P$E_2[t] + dE_2*dt
+    P$I_2[t + 1] = P$I_2[t] + dI_2*dt
+    P$E_3[t + 1] = P$E_3[t] + dE_3*dt
+    P$I_3[t + 1] = P$I_3[t] + dI_3*dt
+    P$E_4[t + 1] = P$E_4[t] + dE_4*dt
+    P$I_4[t + 1] = P$I_4[t] + dI_4*dt
+    P$D[t + 1] = P$D[t] + dD*dt
+    P$N[t + 1] = P$N[t] + dN*dt
+    }
+    return(P)
+  })
+}
+
+# test on pop1 to make sure run_model works
+run_model(as.numeric(pop1[1, ]), dt, 29)
+
+```
+
+
+
+## Function to Evaluate Fitness
+
+```{r}
+
+# active total, deaths, mdr, or hr
+
+get_fitness <- function(ind, dt = dt, finalYr) {
+  
+  # run the model with this individual set of parameters
+  P <- run_model(ind, dt, finalYr)
+  
+  # convert time so that we can compare values per year
+  year_steps <- seq(1, 300, by = 10)
+  
+  # Extract model predictions -- based on Ellie's code
+  pred_MDR   <- P$I_4[year_steps] * (mu_0 + mu + parms["phi4"]) 
+  
+  pred_HR    <- P$I_2[year_steps] * (mu_0 + mu + parms["phi2"]) 
+  
+  pred_Total <- P$I_1[year_steps]*(mu_0 + mu + parms["phi1"]) +
+              P$I_2[year_steps]*(mu_0 + mu + parms["phi2"]) +
+              P$I_3[year_steps]*(mu_0 + mu + parms["phi3"]) +
+              P$I_4[year_steps]*(mu_0 + mu + parms["phi4"])
+ 
+  pred_Deaths <- P$D[year_steps]   
+  
+  
+  # Calculate sum squared error for each type of TB -- the cdc data vectors are all length 30 and the predictions should be too
+  sse_MDR    <- sum((pred_MDR - ActiveCasesMDR)^2)
+  sse_HR     <- sum((pred_HR - ActiveCasesHR)^2)
+  sse_Total  <- sum((pred_Total - ActiveCasesTotal)^2)
+  sse_Deaths <- sum((pred_Deaths - TotalDeaths)^2)
+  
+  return (sse_Total) # returns a 4D row vector
+}
+
+# check to see if get_fitness works
+for (row in 1:nrow(pop1)) { # each row is a set of params/individual
+  ind <- pop1[row, ] # gives this whole row of pop1
+  print(get_fitness(ind, dt, finalYr)) # prints all 4 fitness metrics for this set of param values
+}
+  
+```
+
+## Loop until convergence to optimal solution
+
+```{r}
+
+# function for running the genetic algorithm
+
+# INPUTS
+#   parm_names: the names of the parameters
+#   parm ranges: the ranges of the parameters
+#   popsize: the size of the population
+#   numgens: the number of generations we want
+#   mutrate: the mutation rate
+#   numtop: the number of the most fit individuals we pick for breeding
+
+run_ga <- function(parm_names, parm_ranges, popsize, numgens, mutrate, numtop) {
+
+  # step 1: Randomly initialize a population
+  pop <- generate_pop(popsize, parm_names, parm_ranges)
+
+  best_fitness <- numeric(numgens) # track to see how the algorithm is doing
+  
+  for (gen in 1:numgens) {
+    fitness <- numeric(popsize) # we calculate a fitness score for each individual in the population
+    
+    # determine the fitness of each set of parameters in the initial population
+    for (row in 1:nrow(pop)) { # each row of pop is a set of parameters
+      ind <- pop[row, ]
+      fitness[row] <- get_fitness(ind, dt, finalYr)
+    }
+    
+    # get the best fitness (lowest error) for this generation
+    best_fitness[gen] <- min(fitness)
+    
+# since each row of result gives us 4 different fitness scores, do we use them all? do we punish certain fitness scores differently?
+# for now let's just alter get_fitness to return 1 number for total cases and test run_ga on that
+    
+    # STILL NEED TO EDIT THIS PART OF THE FUNCTION TO ACCOMODATE THIS INFORMATION!!!
+    
+  }
+  
+  # select the indices with the lowest error
+  top_indices <- order(fitness)[1:numtop]
+  
+  # select the parameter sets at these indices to become parents for next gen
+  parents <- pop[top_indices, ]
+  
+  # generate the next generation by randomly mixing parents' genes
+  
+  new_pop <- data.frame(matrix(nrow = 0, ncol = length(parm_names))) # data frame for new population
+  colnames(new_pop) <- parm_names
+  
+  for (i in 1:numtop) {
+    for (j in 1:numtop) {
+      parent1 <- parents[i, ]
+      parent2 <- parents[j, ]
+      
+      child <- numeric(length(parm_names)) # create child vector     
+      names(child) <- parm_names                  
+  
+      # randomly assign parents' traits to the child 
+      for (p in parm_names) { # for each parameter, randomly generate a number from 0 to 1
+        if (runif(1) < 0.5) { #if the number is less than 0.5, inherit from parent 1
+          child[p] <- parent1[[p]]                 
+        } else { # otherwise, inherit from parent 2
+          child[p] <- parent2[[p]]                 
+        }
+      }
+      
+      # perform mutation
+      for (p in parm_names) {
+        if (runif(1) < mutrate) { # randomly generate number 0-1. mutrate% of samples will be less than mutrate. This tells us whether or not we mutate this parameter for the child
+          bounds <- parm_ranges[[p]] # get the bounds of this parameter
+          child[p] <- runif(1, bounds[1], bounds[2]) # this parameter will be generated randomly from the parameter bounds 
+        }
+      }
+      
+      # add (transpose) child to new population
+      new_pop <- rbind(new_pop, as.data.frame(t(child)))
+    }
+  }
+  
+  # replace the old population with the new population
+  pop <- new_pop
+
+# get the fittest n=individual from the new population
+final_fitness <- numeric(nrow(pop))
+for (row in 1:nrow(pop)) {
+  final_fitness[row] <- get_fitness(pop[row, ], dt, finalYr)
+}
+
+# get location of fittest individual
+best_index <- which.min(final_fitness)
+
+# get fittest individual
+best_indiv <- pop[best_index, ]
+
+return(list(
+  best_individual = best_indiv,
+  best_fitness = min(final_fitness),
+  fitness_history = best_fitness
+))
+}
+```
+
+```{r}
+# run the commented function call when the run_ga function is complete:
+
+# we use the same parameter names and ranges, we want to generate 900 individuals, run the alg 17 times, use 0.3 mutation rate, and take top 30 individuals from each generation
+
+run_ga(parm_names, parm_ranges, 900, 17, 0.3, 30)
+```
+
+> altruism project:
+  code diffeqs, start working with netlogo
