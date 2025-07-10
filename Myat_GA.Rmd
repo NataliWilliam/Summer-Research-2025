@@ -1,0 +1,240 @@
+---
+title: "Genetic Algorithm 2.0"
+output: html_document
+date: "2025-06-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(deSolve)
+```
+
+Steps:
+
+-   Randomly initialize a population (sets of parameters)
+
+-   Determine the fitness of each set of parameters in the initial population
+
+-   Until convergence, repeat:
+
+    -   Select parents from the population (n best fitting sets of parameters)
+
+    -   Crossover and generate a new population (randomly select param from each parent to create a new set of parameters for each pair)
+
+    -   Perform mutation on new population
+
+    -   Calculate fitness for new population
+
+```{r}
+deltaT <- 0.1 #The length of each time step (in years) 
+finalYr <- 21 #In years - We only have data from the CDC through 2013
+totT <- finalYr/deltaT #Time steps
+cutoffYr <- 8/deltaT
+
+CDCActiveTotal <- c(25102, 24206, 22726, 21210, 19751, 18286, 17499, 16308, 15945, 15055, 14835, 14499, 14063, 13728, 13282, 12895, 11523, 11161, 10510, 9941, 9565,9379,9539,9238,9066,8996,8895,7170,7866,8332) #CDC Reported Tuberculosis 2022 - Table 2
+ActiveCasesTotal <- CDCActiveTotal/1000000 #Calculates total active infections from the CDC data
+
+CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602+565) #CDC Reported Tuberculosis 2022 - Table 1
+TotalDeaths <- CDCTBDeaths/1000000
+
+CDCTBDeathsNC <- c(1631, 1478, 1336, 1202, 1166, 1112, 930, 776, 764, 784, 711, 662, 648, 644, 554, 590, 529, 569, 536, 510, 555, 493,470,528,515,542,526,600,602,565) #CDC Reported Tuberculosis 2022 - Table 1
+DeathsNC <- CDCTBDeathsNC/1000000
+
+CDCActiveHR <- c(1534, 1543, 1351, 1284, 1195, 1120, 1000, 981, 897, 914, 904, 872, 842, 845, 797, 835, 762, 692, 752, 685, 674, 687, 685,651,632,642,661,461,538,550) #CDC Reported Tuberculosis 2022 - Table 8
+ActiveCasesHR <- CDCActiveHR/1000000
+
+CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 114, 105, 127, 86, 96,94,88,97,129,104,94,56,80,99) #CDC Reported Tuberculosis 2022 - Table 9
+ActiveCasesMDR <- CDCActiveMDR/1000000
+```
+
+```{r}
+length(ActiveCasesTotal)
+length(DeathsNC)
+length(ActiveCasesHR)
+length(ActiveCasesMDR)
+```
+
+```{r}
+param_names <- c("a2","a3","a4","b","gamma","l","mu","p","phi1","phi2","phi3","phi4","ql","r2","r3","r4","t1","t2","t3","t4","vL","y1","y2","z1","z2","z3","z4")
+
+param_ranges <- data.frame(a2 = c(0, 0.2), a3 = c(0,0.2), a4 = c(0, 0.2), b = c(0.5, 1), gamma = c(0,1), l = c(0,0.3), mu = c(0,0.5), p = c(0,0.3), phi1 = c(0.6,0.9), phi2 = c(0.5, 0.9), phi3 = c(0.36, 0.5), phi4 = c(0.3, 0.5), ql = c(0,30), r2 = c(0,0.2), r3 = c(0,0.2), r4 = c(0,0.2), t1 = c(0,0.1), t2 = c(0,0.1), t3 = c(0,0.1), t4 = c(0,0.1), vL = c(0, 0.01), y1 = c(0,1), y2 = c(0,1), z1 = c(0.6,0.9), z2 = c(0.5,0.9), z3 = c(0.5,0.9), z4 = c(0.1,0.8))
+
+rownames(param_ranges) <- c("min", "max")
+
+param_ranges <- as.matrix(param_ranges)
+
+param_ranges
+
+
+```
+
+
+```{r}
+generate_individual <- function() {
+  sapply(1:length(param_names), function(i) {
+    runif(1, min = param_ranges[1, i], max = param_ranges[2, i])
+  })
+}
+
+
+
+generate_population <- function(pop_size) {
+  population_matrix <- t(replicate(pop_size, generate_individual()))
+  colnames(population_matrix) <- param_names
+  return(as.data.frame(population_matrix))
+}
+
+#I made the length of population to be the counted in a way like with parameters not in a way of how many individuals are in the population
+
+# Example usage:
+population <- generate_population(20)
+```
+
+
+```{r}
+Pdot <- function(t, v, parms){
+  with(as.list(c(parms, v)), {
+    #Differential Equations
+    dS <- ro*N + (1-l)*alpha*N + z1*phi1*I1 + z2*phi2*I2 + z3*phi3*I3 + z4*phi4*I4 - ql*t1*S*I1/N - ql*t2*S*I2/N - ql*t3*S*I3/N - ql*t4*S*I4/N - mu0*S
+    dE1 <- l*alpha*(1-r2-r3-r4)*N + (1-p)*ql*t1*S*I1/N + (1-y1)*(1-z1)*phi1*I1 - vL*E1 - mu0*E1
+    dI1 <- p*ql*t1*S*I1/N + vL*E1 - phi1*I1 - (mu0 + mu)*I1
+    dE2 <- l*alpha*r2*N + (1-p)*ql*t2*S*I2/N + gamma*(1-z1)*y1*phi1*I1 + (1-y2)*(1-z2)*phi2*I2 - vL*E2 - mu0*E2
+    dI2 <- p*ql*t2*S*I2/N + vL*E2 - phi2*I2 - (mu0 + mu)*I2
+    dE3 <- l*alpha*r3*N + (1-p)*ql*t3*S*I3/N + (1-gamma)*(1-z1)*y1*phi1*I1 + (1-y2)*(1-z3)*phi3*I3 - vL*E3 - mu0*E3
+    dI3 <- p*ql*t3*S*I3/N + vL*E3 - phi3*I3 - (mu0+mu)*I3
+    dE4 <- l*alpha*r4*N + (1-p)*ql*t4*S*I4/N + y2*(1-z2)*phi2*I2 + y2*(1-z3)*phi3*I3 + (1-z4)*phi4*I4 - vL*I4 - mu0*E4
+    dI4 <- p*ql*t4*S*I4/N + vL*E4 - phi4*I4 - (mu0+mu)*I4
+    dN <- (ro+alpha)*N - mu0*N - mu*(I1 + I2 + I3 + I4)
+    dD <- mu*(I1 + I2 + I3 + I4)
+    return ( list(c(dS, dE1, dI1, dE2, dI2, dE3, dI3, dE4, dI4, dD, dN)) )
+  })
+}
+
+hill <- function(initial=cutoffYr+1, final=totT+1, dataSet=P, parms) { #added parms as parms not defined globally 
+  # recursive=TRUE collapses dataframe to labeled vector
+  initv <- c(dataSet[initial,], recursive=TRUE)
+  # times = data points to be calculated
+  times <- initial:final*deltaT
+  # compute master results 
+  mres <- lsoda(initv, times, Pdot, parms)
+  # mres[,-1] = mres without 1st column
+  dataSet[initial:final,] <- c(mres[,-1])
+  return(dataSet)
+}
+
+generateResults <- function(mres, parms) { #added parms as parms not defined globally 
+  with(as.list(parms), {
+    Susceptible <- mres$S
+    Exposed1 <- mres$E1
+    Infectious1 <- mres$I1
+    Exposed2 <- mres$E2
+    Infectious2 <- mres$I2
+    Exposed3 <- mres$E3
+    Infectious3 <- mres$I3
+    Exposed4 <- mres$E4
+    Infectious4 <- mres$I4
+    Dead <- mres$D
+    Total <- mres$S + mres$E1 + mres$I1 + mres$E2 + mres$I2 + mres$E3 + mres$I3 + mres$E4 + mres$I4
+    InfectiousTotal <- mres$I1 + mres$I2 + mres$I3 + mres$I4 
+    return(data.frame(Susceptible, Exposed1, Infectious1, Exposed2, Infectious2, Exposed3, Infectious3, Exposed4, Infectious4, Total, Dead, InfectiousTotal))
+  })
+}
+```
+
+
+```{r}
+error_function <- function(parameters, obs_active, obs_hr, obs_mdr, obs_deaths) {
+  names(parameters) <- c("a2", "a3", "a4", "b", "gamma", "l", "mu", "p", 
+                         "phi1", "phi2", "phi3", "phi4", "ql", "r2", "r3", "r4", 
+                         "t1", "t2", "t3", "t4", "vL", "y1", "y2", 
+                         "z1", "z2", "z3", "z4")
+  
+  # Add constants
+  parms <- c(parameters, ro = 0.0179, mu0 = 0.013, alpha = 0.00425)
+  
+  # Set initial conditions in P based on parameter values
+  P <- data.frame(S = rep(0, totT), E1 = 0, I1 = 0, E2 = 0, I2 = 0,
+                  E3 = 0, I3 = 0, E4 = 0, I4 = 0, D = 0, N = 0)
+
+  P$N[1] <- 280.726081
+  P$E1[1] <- 11.213 * (1 - parameters["a2"] - parameters["a3"] - parameters["a4"])
+  P$E2[1] <- 11.213 * parameters["a2"]
+  P$E3[1] <- 11.213 * parameters["a3"]
+  P$E4[1] <- 11.213 * parameters["a4"]
+
+  # Active TB compartments
+  b <- parameters["b"]
+  phi1 <- parameters["phi1"]
+  phi2 <- parameters["phi2"]
+  phi3 <- parameters["phi3"]
+  phi4 <- parameters["phi4"]
+  mu <- parameters["mu"]
+
+  P$I1[1] <- (b * (CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1]) / (0.013 + mu + phi1)) / 1000000
+  P$I2[1] <- (CDCActiveHR[1] / (0.013 + mu + phi2)) / 1000000
+  P$I3[1] <- ((1 - b) * (CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1]) / (0.013 + mu + phi3)) / 1000000
+  P$I4[1] <- (CDCActiveMDR[1] / (0.013 + mu + phi4)) / 1000000
+
+  P$S[1] <- P$N[1] - P$E1[1] - P$I1[1] - P$E2[1] - P$I2[1] - P$E3[1] - P$I3[1] - P$E4[1] - P$I4[1]
+
+  # Run simulation using hill()
+  yrs <- seq(1993, 1993+finalYr, deltaT)
+  
+  P <- hill(1, totT+1, P, parms)
+  Results <- generateResults(P, parms)
+
+  # Get model outputs
+  model_active  <- Results$InfectiousTotal
+  model_hr      <- Results$Infectious2
+  model_mdr     <- Results$Infectious4
+  model_deaths  <- Results$Dead
+
+  # Compute squared relative error
+  err <- function(model, obs) {
+    eps <- 1e-8
+    sum(((model - obs) / (obs + eps))^2)
+  }
+
+  total_error <- err(model_active, obs_active) +
+                 err(model_hr, obs_hr) +
+                 err(model_mdr, obs_mdr) +
+                 err(model_deaths, obs_deaths)
+
+  return(total_error)
+}
+```
+
+```{r}
+ls()
+```
+
+```{r}
+length(param_names)
+length(population)
+```
+
+
+```{r}
+for (i in 1:length(population)) {
+  error_value <- error_function(
+    parameters = as.numeric(population[i,]),  # correct extraction
+    obs_active = ActiveCasesTotal,
+    obs_hr     = ActiveCasesHR,
+    obs_mdr    = ActiveCasesMDR,
+    obs_deaths = TotalDeaths
+  )
+}
+
+error_value
+```
+
