@@ -117,8 +117,8 @@ tb_model_error <- function(params, data) {
   preds <- run_tb_model(params)
   err <- 0 # set error to be zero at initial
   for (i in 1:n_years) {
-    err <- err +
-      ((preds$Active[i] - data$Active[i]) / data$Active[i])^2 +
+    err <- err + 100*
+      ((preds$Active[i] - data$Active[i]) / data$Active[i])^4 +
       ((preds$HR[i]     - data$HR[i])     / data$HR[i])^2 +
       ((preds$MDR[i]    - data$MDR[i])    / data$MDR[i])^2 +
       ((preds$Deaths[i] - data$Deaths[i]) / data$Deaths[i])^2
