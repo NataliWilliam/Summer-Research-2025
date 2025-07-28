@@ -8,166 +8,427 @@ date: "2025-06-19"
 knitr::opts_chunk$set(echo = TRUE)
 
 library(deSolve)
-install.packages("GA")
-library(GA)
+```
+
+Steps:
+
+-   Randomly initialize a population (sets of parameters)
+
+-   Determine the fitness of each set of parameters in the initial population
+
+-   Until convergence, repeat:
+
+    -   Select parents from the population (n best fitting sets of parameters)
+
+    -   Crossover and generate a new population (randomly select param from each parent to create a new set of parameters for each pair)
+
+    -   Perform mutation on new population
+
+    -   Calculate fitness for new population
+
+```{r}
+deltaT <- 1  #The length of each time step (in years) 
+finalYr <- 30 #In years - We only have data from the CDC through 2022
+cutoffYr <- 8/deltaT
+totT <- finalYr / deltaT #Time steps
 ```
 
 ```{r}
-deltaT <- 0.1 #The length of each time step (in years) 
-finalYr <- 21 #In years - We only have data from the CDC through 2013
-totT <- finalYr/deltaT #Time steps
-cutoffYr <- 8/deltaT
-
-CDCActiveTotal <- c(25102, 24206, 22726, 21210, 19751, 18286, 17499, 16308, 15945, 15055, 14835, 14499, 14063, 13728, 13282, 12895, 11523, 11161, 10510, 9941, 9565) #CDC Reported Tuberculosis 2013 - Table 2
+CDCActiveTotal <- c(25102, 24206, 22726, 21210, 19751, 18286, 17499, 16308, 15945, 15055, 14835, 14499, 14063, 13728, 13282, 12895, 11523, 11161, 10510, 9941, 9565,9379,9539,9238,9066,8996,8895,7170,7866,8332) #CDC Reported Tuberculosis 2022 - Table 2
 ActiveCasesTotal <- CDCActiveTotal/1000000 #Calculates total active infections from the CDC data
 
-CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555) #CDC Reported Tuberculosis 2013 - Table 1
+CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602,
+1631+1478+1336+1202+1166+1112+930+776+764+784+711+662+648+644+554+590+529+569+536+510+555+493+470+528+515+542+526+600+602+565) #CDC Reported Tuberculosis 2022 - Table 1
 TotalDeaths <- CDCTBDeaths/1000000
 
-CDCActiveHR <- c(1534, 1543, 1350, 1284, 1195, 1120, 999, 981, 897, 912, 903, 872, 842, 845, 798, 835, 762, 699, 753, 683, 668) #CDC Reported Tuberculosis 2013 - Table 8
+CDCTBDeathsNC <- c(1631, 1478, 1336, 1202, 1166, 1112, 930, 776, 764, 784, 711, 662, 648, 644, 554, 590, 529, 569, 536, 510, 555, 493,470,528,515,542,526,600,602,565) #CDC Reported Tuberculosis 2022 - Table 1
+DeathsNC <- CDCTBDeathsNC/1000000
+
+CDCActiveHR <- c(1534, 1543, 1351, 1284, 1195, 1120, 1000, 981, 897, 914, 904, 872, 842, 845, 797, 835, 762, 692, 752, 685, 674, 687, 685,651,632,642,661,461,538,550) #CDC Reported Tuberculosis 2022 - Table 8
 ActiveCasesHR <- CDCActiveHR/1000000
 
-CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 114, 105, 127, 86, 96) #CDC Reported Tuberculosis 2013 - Table 9
+CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 114, 105, 127, 86, 96,94,88,97,129,104,94,56,80,99) #CDC Reported Tuberculosis 2022 - Table 9
 ActiveCasesMDR <- CDCActiveMDR/1000000
-parameters <- vector(mode="numeric", length=27) #Creates a vector of parameters with the values set to 0 to start
+```
 
-Pdot <- function(t, y, parms) {
-  with(as.list(c(y, parms)), {
-    # Differential equations from your PDF
-    dS <- ro*N + (1-l)*alpha*N + z1*phi1*I1 + z2*phi2*I2 + z3*phi3*I3 + z4*phi4*I4 - 
-          ql*t1*S*I1/N - ql*t2*S*I2/N - ql*t3*S*I3/N - ql*t4*S*I4/N - mu0*S
-    
-    dE1 <- l*alpha*(1-r2-r3-r4)*N + (1-p)*ql*t1*S*I1/N + (1-y1)*(1-z1)*phi1*I1 - 
-           vL*E1 - mu0*E1
-    
+```{r}
+length(ActiveCasesTotal)
+length(DeathsNC)
+length(ActiveCasesHR)
+length(ActiveCasesMDR)
+```
+
+```{r}
+param_names <- c("a2","a3","a4","b","gamma","l","mu","p","phi1","phi2","phi3","phi4","ql","r2","r3","r4","t1","t2","t3","t4","vL","y1","y2","z1","z2","z3","z4")
+
+param_ranges <- data.frame(a2 = c(0, 0.2), a3 = c(0,0.2), a4 = c(0, 0.2), b = c(0.5, 1), gamma = c(0,1), l = c(0,0.3), mu = c(0,0.5), p = c(0,0.3), phi1 = c(0.6,0.9), phi2 = c(0.5, 0.9), phi3 = c(0.36, 0.5), phi4 = c(0.3, 0.5), ql = c(0,30), r2 = c(0,0.2), r3 = c(0,0.2), r4 = c(0,0.2), t1 = c(0,0.1), t2 = c(0,0.1), t3 = c(0,0.1), t4 = c(0,0.1), vL = c(0, 0.01), y1 = c(0,1), y2 = c(0,1), z1 = c(0.6,0.9), z2 = c(0.5,0.9), z3 = c(0.5,0.9), z4 = c(0.1,0.8))
+
+rownames(param_ranges) <- c("min", "max")
+
+param_ranges <- as.matrix(param_ranges)
+
+param_ranges
+
+
+```
+
+
+```{r}
+generate_individual <- function() {
+  individual <- numeric(length(param_names))
+  names(individual) <- param_names
+  
+  for (i in 1:length(param_names)) {
+    individual[i] <- runif(1, min = param_ranges[1, i], max = param_ranges[2, i])
+  }
+  
+  return(individual)
+}
+
+generate_population <- function(pop_size) {
+  population_matrix <- matrix(0, nrow = pop_size, ncol = length(param_names))
+  colnames(population_matrix) <- param_names
+  
+  for (i in 1:pop_size) {
+    population_matrix[i, ] <- generate_individual()
+  }
+  
+  return(as.data.frame(population_matrix))
+}
+
+population <- generate_population(900)
+```
+
+
+```{r}
+Pdot <- function(t, v, parms){
+  with(as.list(c(parms, v)), {
+    #Differential Equations
+    dS <- ro*N + (1-l)*alpha*N + z1*phi1*I1 + z2*phi2*I2 + z3*phi3*I3 + z4*phi4*I4 - ql*t1*S*I1/N - ql*t2*S*I2/N - ql*t3*S*I3/N - ql*t4*S*I4/N - mu0*S
+    dE1 <- l*alpha*(1-r2-r3-r4)*N + (1-p)*ql*t1*S*I1/N + (1-y1)*(1-z1)*phi1*I1 - vL*E1 - mu0*E1
     dI1 <- p*ql*t1*S*I1/N + vL*E1 - phi1*I1 - (mu0 + mu)*I1
-    
-    dE2 <- l*alpha*r2*N + (1-p)*ql*t2*S*I2/N + gamma*(1-z1)*y1*phi1*I1 + 
-           (1-y2)*(1-z2)*phi2*I2 - vL*E2 - mu0*E2
-    
+    dE2 <- l*alpha*r2*N + (1-p)*ql*t2*S*I2/N + gamma*(1-z1)*y1*phi1*I1 + (1-y2)*(1-z2)*phi2*I2 - vL*E2 - mu0*E2
     dI2 <- p*ql*t2*S*I2/N + vL*E2 - phi2*I2 - (mu0 + mu)*I2
-    
-    dE3 <- l*alpha*r3*N + (1-p)*ql*t3*S*I3/N + (1-gamma)*(1-z1)*y1*phi1*I1 + 
-           (1-y2)*(1-z3)*phi3*I3 - vL*E3 - mu0*E3
-    
+    dE3 <- l*alpha*r3*N + (1-p)*ql*t3*S*I3/N + (1-gamma)*(1-z1)*y1*phi1*I1 + (1-y2)*(1-z3)*phi3*I3 - vL*E3 - mu0*E3
     dI3 <- p*ql*t3*S*I3/N + vL*E3 - phi3*I3 - (mu0+mu)*I3
-    
-    dE4 <- l*alpha*r4*N + (1-p)*ql*t4*S*I4/N + y2*(1-z2)*phi2*I2 + 
-           y2*(1-z3)*phi3*I3 + (1-z4)*phi4*I4 - vL*I4 - mu0*E4
-    
+    dE4 <- l*alpha*r4*N + (1-p)*ql*t4*S*I4/N + y2*(1-z2)*phi2*I2 + y2*(1-z3)*phi3*I3 + (1-z4)*phi4*I4 - vL*E4 - mu0*E4
     dI4 <- p*ql*t4*S*I4/N + vL*E4 - phi4*I4 - (mu0+mu)*I4
-    
     dN <- (ro+alpha)*N - mu0*N - mu*(I1 + I2 + I3 + I4)
     dD <- mu*(I1 + I2 + I3 + I4)
-    
     return(list(c(dS, dE1, dI1, dE2, dI2, dE3, dI3, dE4, dI4, dD, dN)))
   })
 }
 
+hill <- function(initial=cutoffYr+1, final=totT+1, dataSet=P, parms) {
+  initv <- c(dataSet[initial,], recursive=TRUE)
+  times <- initial:final*deltaT
+  mres <- lsoda(initv, times, Pdot, parms)
+  dataSet[initial:final,] <- mres[,-1]
+  return(dataSet)
+}
 
-names(parameters) <- c("a2", "a3", "a4", "b", "gamma", "l", "mu", "p", "phi1", "phi2", "phi3", "phi4", "ql", "r2", "r3", "r4", "t1", "t2", "t3", "t4", "vL", "y1", "y2", "z1", "z2", "z3", "z4")
-
-ranges <- data.frame(matrix(c(0, 0.2, 0, 0.2, 0, 0.2, 0.5, 1, 0, 1, 0, 0.3, 0, 0.5, 0, 0.3, 0.6, 0.9, 0.5, 0.9, 0.3, 0.9, 0.3, 0.5, 0, 30, 0, 0.2, 0, 0.2, 0, 0.2, 0, 0.1, 0, 0.1, 0, 0.1, 0, 0.1, 0, 0.01, 0, 1, 0, 1, 0.6, 0.9, 0.5, 0.9, 0.5, 0.9, 0.1, 0.8),nrow=2, ncol=length(parameters))) #Creates a matrix of the minima and maxima for all parameters
-names(ranges) <- c("a2","a3","a4","b","gamma", "l",  "mu", "p", "phi1","phi2","phi3","phi4", "ql","r2","r3", "r4", "t1","t2","t3","t4", "vL","y1","y2","z1", "z2", "z3","z4")
- 
-
-ro = 0.0179
-mu0 = 0.013
-alpha = 0.00425
-```
-
-
-```{r}
-pop_size = 900
-
-#Function to Generate initial population
-
-generate_individual <- function() {
-  sapply(1:length(param_names), function(i) {
-    runif(1, min = param_ranges[1, i], max = param_ranges[2, i])
+generateResults <- function(mres, parms) {
+  with(as.list(parms), {
+    Susceptible <- mres$S
+    Exposed1 <- mres$E1
+    Infectious1 <- mres$I1
+    Exposed2 <- mres$E2
+    Infectious2 <- mres$I2
+    Exposed3 <- mres$E3
+    Infectious3 <- mres$I3
+    Exposed4 <- mres$E4
+    Infectious4 <- mres$I4
+    Dead <- mres$D
+    Total <- mres$S + mres$E1 + mres$I1 + mres$E2 + mres$I2 + mres$E3 + mres$I3 + mres$E4 + mres$I4
+    InfectiousTotal <- mres$I1 + mres$I2 + mres$I3 + mres$I4 
+    return(data.frame(Susceptible, Exposed1, Infectious1, Exposed2, Infectious2, Exposed3, Infectious3, Exposed4, Infectious4, Total, Dead, InfectiousTotal))
   })
 }
-
-generate_population <- function(pop_size) {
-  lapply(1:pop_size, function(x) generate_individual())
-}
 ```
 
-```{r}
-#Function to calculate fitness
 
-error_function <- function(parameters, times, y0, obs_active, obs_hr, obs_mdr, obs_deaths) {
-  names(parameters) <- c("a2", "a3", "a4", "b", "gamma", "l", "mu", "p", 
-                         "phi1", "phi2", "phi3", "phi4", "ql", "r2", "r3", "r4", 
-                         "t1", "t2", "t3", "t4", "vL", "y1", "y2", "z1", "z2", "z3", "z4")
-  
-  # Include constant parameters
-  full_parameters <- c(parameters, ro = 0.0179, mu0 = 0.013, alpha = 0.00425)
-  
-  # Simulate model
-  output <- tryCatch({
-    as.data.frame(ode(y = y0, times = times, func = Pdot, parms = full_parameters))
-  }, error = function(e) return(NULL))
-  
-  if (is.null(output)) return(Inf)
-  
-  # Extract predicted values
-  model_active <- rowSums(output[, c("I1", "I2", "I3", "I4")])
-  model_hr     <- output$I2
-  model_mdr    <- output$I4
-  model_deaths <- output$D
-  
-  # Normalize and compute squared relative error
-  err_sq <- function(model, data) {
-    sum(((model - data) / data)^2)
+```{r}
+error_function_debug <- function(parameters, obs_active, obs_hr, obs_mdr, obs_deaths) {
+  if (is.null(names(parameters))) {
+    names(parameters) <- param_names
   }
   
-  total_error <- err_sq(model_active, obs_active) + 
-                 err_sq(model_hr, obs_hr) +
-                 err_sq(model_mdr, obs_mdr) +
-                 err_sq(model_deaths, obs_deaths)
+  parms <- c(parameters, ro = 0.0179, mu0 = 0.013, alpha = 0.00425)
   
+  P <- data.frame(S = rep(0, totT), E1 = 0, I1 = 0, E2 = 0, I2 = 0,
+                  E3 = 0, I3 = 0, E4 = 0, I4 = 0, D = 0, N = 0)
+
+  P$N[1] <- 280.726081
+  P$E1[1] <- 11.213 * (1 - parameters["a2"] - parameters["a3"] - parameters["a4"])
+  P$E2[1] <- 11.213 * parameters["a2"]
+  P$E3[1] <- 11.213 * parameters["a3"]
+  P$E4[1] <- 11.213 * parameters["a4"]
+
+  b <- parameters["b"]
+  phi1 <- parameters["phi1"]
+  phi2 <- parameters["phi2"]
+  phi3 <- parameters["phi3"]
+  phi4 <- parameters["phi4"]
+  mu <- parameters["mu"]
+
+  P$I1[1] <- (b * (CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1]) / (0.013 + mu + phi1)) / 1000000
+  P$I2[1] <- (CDCActiveHR[1] / (0.013 + mu + phi2)) / 1000000
+  P$I3[1] <- ((1 - b) * (CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1]) / (0.013 + mu + phi3)) / 1000000
+  P$I4[1] <- (CDCActiveMDR[1] / (0.013 + mu + phi4)) / 1000000
+
+  P$S[1] <- P$N[1] - P$E1[1] - P$I1[1] - P$E2[1] - P$I2[1] - P$E3[1] - P$I3[1] - P$E4[1] - P$I4[1]
+
+  P <- hill(1, totT, P, parms)
+  Results <- generateResults(P, parms)
+
+
+  # Get model outputs
+  model_active  <- Results$InfectiousTotal
+  model_hr      <- Results$Infectious2
+  model_mdr     <- Results$Infectious4
+  model_deaths  <- Results$Dead
+
+  # Compute squared relative error
+  err <- function(model, obs) {
+    eps <- 1e-8
+    sum(((model - obs) / (obs + eps))^2)
+  }
+
+  total_error <- err(model_active, obs_active) +
+                 err(model_hr, obs_hr) +
+                 err(model_mdr, obs_mdr) +
+                 err(model_deaths, obs_deaths)
+
   return(total_error)
 }
-
-```
- 
-```{r}
-#Function to choose 30 fittest individuals
-
-select_t30 <- function(fitness_values, n = 30) {
-  ordered_indices <- order(fitness_values, decreasing = TRUE)
-  
-  top30 <- population[ordered_indices[1:30]]
-  
-  return(top30)
-}
 ```
 
 ```{r}
-#Crossover function to generate a population of 900 again
-for (i in 900) {
-
-#Randomly select two individuals
-select_parents_random <- function(mating_pool) {
-  idx <- sample(1:length(mating_pool), 2, replace = FALSE)
-  return(list(parent1 = mating_pool[[idx[1]]], parent2 = mating_pool[[idx[2]]]))
-}
-
-...
-}
-
+ls()
 ```
 
 ```{r}
-#Main function
+length(param_names)
+length(population)
+```
 
-initial_pop <- generate_population(900)
 
-fitness_values <- sapply(initial_pop, function(individual) {
-  -error_function(individual, times, y0, ActiveCasesTotal, ActiveCasesHR, ActiveCasesMDR, TotalDeaths)
+```{r}
+error_values <- apply(population, 1, function(individual) {
+  error_function_debug(
+    parameters = as.numeric(individual),
+    obs_active = ActiveCasesTotal,
+    obs_hr     = ActiveCasesHR,
+    obs_mdr    = ActiveCasesMDR,
+    obs_deaths = TotalDeaths
+  )
 })
 
-t30 <- select_t30(fitness_values)
+print(error_values)
 ```
+```{r}
+# Modified function to return multiple winners
+tournament_selection_multiple <- function(population, fitness_scores, tournament_size = 30, num_winners = 30) {
+  n <- nrow(population)
+  selected_indices <- sample(1:n, tournament_size)
+  tournament_fitness <- fitness_scores[selected_indices]
+  
+  # Sort by fitness and take top num_winners
+  sorted_indices <- selected_indices[order(tournament_fitness, decreasing = TRUE)]
+  winner_indices <- sorted_indices[1:min(num_winners, length(sorted_indices))]
+  
+  return(population[winner_indices, ])
+}
+
+# Use the modified function
+selected_parents <- tournament_selection_multiple(population = population, 
+                                                fitness_scores = error_values,
+                                                tournament_size = 30, 
+                                                num_winners = 30)
+print(selected_parents)
+```
+
+```{r}
+# Assuming you have selected_parents from the previous tournament selection
+# selected_parents should be a matrix/data.frame with 30 rows (individuals)
+
+# Crossover function - uniform crossover (randomly select each parameter from either parent)
+uniform_crossover <- function(parent1, parent2) {
+  # Get number of parameters
+  num_params <- length(parent1)
+  
+  # Create two offspring
+  offspring1 <- numeric(num_params)
+  offspring2 <- numeric(num_params)
+  
+  # For each parameter, randomly choose which parent contributes to which offspring
+  for (i in 1:num_params) {
+    if (runif(1) < 0.5) {
+      # Parent1 -> Offspring1, Parent2 -> Offspring2
+      offspring1[i] <- parent1[i]
+      offspring2[i] <- parent2[i]
+    } else {
+      # Parent1 -> Offspring2, Parent2 -> Offspring1
+      offspring1[i] <- parent2[i]
+      offspring2[i] <- parent1[i]
+    }
+  }
+  
+  return(list(offspring1 = offspring1, offspring2 = offspring2))
+}
+
+# Generate new population through crossover
+generate_new_population <- function(selected_parents, target_population_size) {
+  new_population <- list()
+  offspring_count <- 0
+  
+  # Pair up parents and create offspring
+  num_parents <- nrow(selected_parents)
+  
+  while (offspring_count < target_population_size) {
+    # Randomly select two different parents
+    parent_indices <- sample(1:num_parents, 2, replace = FALSE)
+    parent1 <- selected_parents[parent_indices[1], ]
+    parent2 <- selected_parents[parent_indices[2], ]
+    
+    # Perform crossover
+    offspring <- uniform_crossover(parent1, parent2)
+    
+    # Add offspring to new population
+    if (offspring_count + 1 <= target_population_size) {
+      new_population[[offspring_count + 1]] <- offspring$offspring1
+      offspring_count <- offspring_count + 1
+    }
+    
+    if (offspring_count + 1 <= target_population_size) {
+      new_population[[offspring_count + 1]] <- offspring$offspring2
+      offspring_count <- offspring_count + 1
+    }
+  }
+  
+  # Convert list to matrix
+  new_population_matrix <- do.call(rbind, new_population)
+  return(new_population_matrix)
+}
+
+# Generate new population (assuming you want same size as original)
+target_pop_size <- nrow(population)  # or specify desired size
+new_population <- generate_new_population(selected_parents, target_pop_size)
+
+print(new_population)
+```
+
+```{r}
+# Mutation function
+mutate <- function(individual, mutation_rate = 0.1, mutation_strength = 0.1) {
+  n_params <- length(individual)
+  
+  for (i in 1:n_params) {
+    if (runif(1) < mutation_rate) {
+      min_val <- param_ranges[1, i]
+      max_val <- param_ranges[2, i]
+      range_size <- max_val - min_val
+      
+      # Add random noise
+      noise <- rnorm(1, 0, mutation_strength * range_size)
+      individual[i] <- individual[i] + noise
+      
+      # Ensure bounds
+      individual[i] <- max(min_val, min(max_val, individual[i]))
+    }
+  }
+  
+  return(individual)
+}
+```
+
+```{r}
+# Main genetic algorithm function
+genetic_algorithm <- function(pop_size = 50, max_generations = 100, 
+                             crossover_rate = 0.8, mutation_rate = 0.1,
+                             obs_active, obs_hr, obs_mdr, obs_deaths) {
+  
+  # Initialize population
+  population <- generate_population(pop_size)
+  
+  # Track best fitness over generations
+  best_fitness_history <- numeric(max_generations)
+  best_individual_history <- list()
+  
+  for (generation in 1:max_generations) {
+    cat("Generation", generation, "of", max_generations, "\n")
+    
+    # Calculate fitness for each individual
+    fitness_scores <- numeric(pop_size)
+    
+    for (i in 1:pop_size) {
+      individual <- as.numeric(population[i, ])
+      fitness_scores[i] <- fitness_function(individual, obs_active, obs_hr, obs_mdr, obs_deaths)
+    }
+    
+    # Track best individual
+    best_idx <- which.max(fitness_scores)
+    best_fitness_history[generation] <- fitness_scores[best_idx]
+    best_individual_history[[generation]] <- population[best_idx, ]
+    
+    cat("Best fitness:", best_fitness_history[generation], "\n")
+    
+    # Create new population
+    new_population <- matrix(0, nrow = pop_size, ncol = length(param_names))
+    colnames(new_population) <- param_names
+    
+    # Elitism: keep best individual
+    new_population[1, ] <- as.numeric(population[best_idx, ])
+    
+    # Generate rest of population
+    for (i in seq(2, pop_size, by = 2)) {
+      # Selection
+      parent1 <- tournament_selection(population, fitness_scores)
+      parent2 <- tournament_selection(population, fitness_scores)
+      
+      # Crossover
+      offspring <- crossover(as.numeric(parent1), as.numeric(parent2), crossover_rate)
+      
+      # Mutation
+      offspring[[1]] <- mutate(offspring[[1]], mutation_rate)
+      offspring[[2]] <- mutate(offspring[[2]], mutation_rate)
+      
+      # Add to new population
+      new_population[i, ] <- offspring[[1]]
+      if (i + 1 <= pop_size) {
+        new_population[i + 1, ] <- offspring[[2]]
+      }
+    }
+    
+    population <- as.data.frame(new_population)
+  }
+  
+  # Return results
+  final_best_idx <- which.max(best_fitness_history)
+  
+  return(list(
+    best_individual = best_individual_history[[final_best_idx]],
+    best_fitness = best_fitness_history[final_best_idx],
+    fitness_history = best_fitness_history,
+    final_population = population
+  ))
+}
+```
+
+```{r}
+# Test the functions
+set.seed(123)
+population <- generate_population(20)
+print(head(population))
+print(dim(population))
+```
+
 
