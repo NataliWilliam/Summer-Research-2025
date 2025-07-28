@@ -1,0 +1,431 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(deSolve)
+library(GA)
+install.packages("tidyverse")
+```
+Time steps
+```{r}
+deltaT <- 0.1  #The length of each time step (in years) 
+finalYr <- 21 # align with Ellie's for testing # 30 In years - We only have data from the CDC through 2022
+cutoffYr <- 8/deltaT
+totT <- finalYr / deltaT #Time steps
+```
+
+CDC data
+```{r}
+CDCActiveTotal <- c(25102, 24206, 22726, 21212, 19751, 18285, 17492, 16305, 15937, 15048, 14828, 14494, 14052, 13716, 13258, 12876, 11492, 11074, 10471, 9908, 9556) #, 9379, 9539, 9238, 9066, 8996, 88895, 7170, 7866, 8332) #, 9633) #CDC TB Incidence and Mortality: 1953–2022(3) (should I include data pre-1993?) 
+ActiveCasesTotal <- CDCActiveTotal/1000000 #Calculates total active infections from the CDC data
+n_years <- length(CDCActiveTotal)
+
+CDCTBDeaths <- c(1631, 1631+1478, 1631+1478+1336, 1631+1478+1336+1202, 1631+1478+1336+1202+1166, 1631+1478+1336+1202+1166+1112, 1631+1478+1336+1202+1166+1112+930, 1631+1478+1336+1202+1166+1112+930+776, 1631+1478+1336+1202+1166+1112+930+776+764, 1631+1478+1336+1202+1166+1112+930+776+764+784, 1631+1478+1336+1202+1166+1112+930+776+764+784+711, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510, 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555) #,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493+470,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493+470+528,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493+470+528+515,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493+470+528+515+542,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493+470+528+515+542+526,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493+470+528+515+542+526+600,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493+470+528+515+542+526+600+602,
+# 1631+1478+1336+1202+1166+1112+930+776+764+784+711+657+648+652+554+585+529+569+539+510+555+493+470+528+515+542+526+600+602+565) #CDC TB Incidence and Mortality: 1953–2022(3)
+TotalDeaths <- CDCTBDeaths/1000000
+
+CDCTBDeathsNC <- c(1631, 1478, 1336, 1202, 1166, 1112, 930, 776, 764, 784, 711, 657, 648, 652, 554, 585, 529, 569, 539, 510, 555, 493, 470, 528, 515, 542, 526, 600, 602, 565) #CDC TB Incidence and Mortality: 1953–2023 (up to 2022)
+DeathsNC <- CDCTBDeathsNC/1000000
+
+CDCActiveHR <- c(1534, 1543, 1351, 1284, 1195, 1120, 1000, 981, 897, 914, 904, 872, 842, 845, 797, 835, 762, 692, 752, 685, 674)#, 687, 685, 651, 632, 642, 661, 461, 538, 550) #, 589)# TB by Drug Resistance: 1993–2022(3) 
+ActiveCasesHR <- CDCActiveHR/1000000
+
+CDCActiveMDR <- c(484, 431, 327, 250, 201, 155, 157, 146, 151, 158, 119, 128, 125, 124, 124, 107, 115, 106, 127, 88, 96) #, 94, 88, 97, 129, 104, 94, 56, 80, 99) #, 100) # TB by Drug Resistance: 1993–2022(3)
+ActiveCasesMDR <- CDCActiveMDR/1000000
+
+cdc_data <- data.frame(
+  Active = ActiveCasesTotal,
+  HR     = ActiveCasesHR,
+  MDR    = ActiveCasesMDR,
+  Deaths = CDCTBDeaths
+)
+```
+
+Setting bounds for parameters
+```{r}
+# parameters to optimize
+# Each row: (min, max) for a parameter
+param_ranges <- matrix(
+  c(0, 0.2, # a2
+    0, 0.2, # a3
+    0, 0.2, # a4
+    
+    0.5, 1, # b
+    
+    0, 1, # gamma
+    
+    0, 0.3, # l
+    
+    0, 0.5, # mu
+    
+    0, 0.3, # p
+    
+    0.6, 0.9, # phi1
+    0.5, 0.9, # phi2
+    0.36, 0.5, # phi3
+    0.3, 0.5, # phi4
+    
+    0, 30, # ql
+    
+    0, 0.01, # vL
+    
+    0, 0.2, # r2
+    0, 0.2, # r3
+    0, 0.2, # r4
+    
+    0, 0.1, # t1
+    0, 0.1, # t2
+    0, 0.1, # t3
+    0, 0.1, # t4
+    
+    0, 1, # y1
+    0, 1, # y2
+    
+    0.6, 0.9, # z1
+    0.5, 0.9, # z2
+    0.5, 0.9, # z3
+    0.1, 0.8 # z4
+  ),
+  byrow = TRUE, ncol = 2
+)
+param_names <- c("a2", "a3", "a4", "b", "gamma", "l", "mu", "p","phi1", "phi2", "phi3", "phi4", "ql", "vL", "r2", "r3", "r4",
+                 "t1", "t2", "t3", "t4", "y1", "y2", "z1", "z2", "z3", "z4")
+
+n_params <- length(param_names)
+```
+
+First Generation
+```{r}
+param_names <- c("a2", "a3", "a4", "b", "gamma", "l", "mu", "p","phi1", "phi2", "phi3", "phi4", "ql", "vL", "r2", "r3", "r4",
+                 "t1", "t2", "t3", "t4", "y1", "y2", "z1", "z2", "z3", "z4")
+
+
+```
+
+Error equation for evaluating fitness
+```{r}
+tb_model_error <- function(params, data) {
+  preds <- run_tb_model(params)
+  err <- 0 # set error to be zero at initial
+  for (i in 1:n_years) {
+    err <- err + 100*
+      ((preds$Active[i] - data$Active[i]) / data$Active[i])^4 +
+      ((preds$HR[i]     - data$HR[i])     / data$HR[i])^2 +
+      ((preds$MDR[i]    - data$MDR[i])    / data$MDR[i])^2 +
+      ((preds$Deaths[i] - data$Deaths[i]) / data$Deaths[i])^2
+  } # use the error formula on paper
+  return(err)
+}
+
+```
+
+The ODE functions
+```{r}
+# Function
+tb_model <- function(t, state, parms) {
+  with(as.list(c(state, parms)), {
+    
+    dS  <- (rho * N -
+            ql*t1 * S*I1/N -
+            ql*t2 * S*I2/N -
+            ql*t3 * S*I3/N -
+            ql*t4 * S*I4/N +
+            z1*phi1*I1 + z2*phi2*I2 + z3*phi3*I3 + z4*phi4*I4 +
+            (1 - l)*alpha*N -
+            mu0*S)
+
+    dE1 <- ((1 - p)*ql*t1 * S*I1/N -
+            vL * E1 +
+            (1 - y1)*(1 - z1)*phi1 * I1 +
+            l*alpha*(1 - r2 - r3 - r4)*N -
+            mu0*E1)
+
+    dI1 <- (p*ql*t1 * S*I1/N +
+            vL*E1 -
+            phi1*I1 -
+            mu0*I1 -
+            mu*I1)
+
+    dE2 <- ((1 - p)*ql*t2 * S*I2/N -
+            vL * E2 +
+            (1 - y2)*(1 - z2)*phi2 * I2 +
+            gamma*(1 - z1)*y1*phi1 * I1 +
+            l*alpha*r2*N -
+            mu0*E2)
+
+    dI2 <- (p*ql*t2 * S*I2/N +
+            vL*E2 -
+            phi2*I2 -
+            mu0*I2 -
+            mu*I2)
+
+    dE3 <- ((1 - p)*ql*t3 * S*I3/N -
+            vL * E3 +
+            (1 - y2)*(1 - z3)*phi3 * I3 +
+            (1 - gamma)*(1 - z1)*y1*phi1 * I1 +
+            l*alpha*r3*N -
+            mu0*E3)
+
+    dI3 <- (p*ql*t3 * S*I3/N +
+            vL*E3 -
+            phi3*I3 -
+            mu0*I3 -
+            mu*I3)
+
+    dE4 <- ((1 - p)*ql*t4 * S*I4/N -
+            vL * E4 +
+            (1 - z2)*y2*phi2 * I2 +
+            (1 - z3)*y2*phi3 * I3 +
+            (1 - z4)*phi4 * I4 +
+            l*alpha*r4*N -
+            mu0*E4)
+
+    dI4 <- (p*ql*t4 * S*I4/N +
+            vL*E4 -
+            phi4*I4 -
+            mu0*I4 -
+            mu*I4)
+
+    dD  <- (mu * (I1 + I2 + I3 + I4))
+
+    dN  <- (rho*N +
+            alpha*N -
+            mu*(I1 + I2 + I3 + I4) -
+            mu0*N)
+
+    list(c(dS, dE1, dI1, dE2, dI2, dE3, dI3, dE4, dI4, dD, dN))
+  })
+}
+```
+
+Helper Functions for Simulation and Results
+```{r}
+# simulation
+  hill <- function(initial=cutoffYr+1, final=totT+1, dataSet=P) {
+  # recursive=TRUE collapses dataframe to labeled vector
+  initv <- c(dataSet[initial,], recursive=TRUE)
+  # times = data points to be calculated
+  times <- initial:final*deltaT
+  # compute master results
+  mres <- lsoda(initv, times, tb_model, parms)
+  # mres[,-1] = mres without 1st column
+  dataSet[initial:final,] <- c(mres[,-1])
+  return(dataSet)
+ }
+
+
+# Create composite metrics (from Ellie's code)
+ generateResults <- function(mres) {
+  with(as.list(parms), {
+    Susceptible <- mres$S
+    Exposed1 <- mres$E1
+    Infectious1 <- mres$I1
+    Exposed2 <- mres$E2
+    Infectious2 <- mres$I2
+    Exposed3 <- mres$E3
+    Infectious3 <- mres$I3
+    Exposed4 <- mres$E4
+    Infectious4 <- mres$I4
+    Dead <- mres$D
+    Total <- mres$S + mres$E1 + mres$I1 + mres$E2 + mres$I2 + mres$E3 + mres$I3 + mres$E4 + mres$I4
+    InfectiousTotal <- mres$I1 + mres$I2 + mres$I3 + mres$I4 
+    return(data.frame(Susceptible, Exposed1, Infectious1, Exposed2, Infectious2, Exposed3, Infectious3, Exposed4, Infectious4, Total, Dead, InfectiousTotal))
+  })
+}
+```
+
+```{r}
+run_tb_model <- function(params) {
+  # Assign parameter names for clarity
+  names(params) <- param_names
+
+  # Fixed parameters
+  alpha <- 0.00425
+  rho <- 0.0179
+  mu0 <- 0.013
+
+  # Evolving parameters
+  # (take  from params vector)
+  a2    <- params["a2"]
+  a3    <- params["a3"]
+  a4    <- params["a4"]
+  b     <- params["b"]
+  gamma <- params["gamma"]
+  l     <- params["l"]
+  mu    <- params["mu"]
+  p     <- params["p"]
+  phi1  <- params["phi1"]
+  phi2  <- params["phi2"]
+  phi3  <- params["phi3"]
+  phi4  <- params["phi4"]
+  ql    <- params["ql"]
+  vL    <- params["vL"]
+  r2    <- params["r2"]
+  r3    <- params["r3"]
+  r4    <- params["r4"]
+  t1    <- params["t1"]
+  t2    <- params["t2"]
+  t3    <- params["t3"]
+  t4    <- params["t4"]
+  y1    <- params["y1"]
+  y2    <- params["y2"]
+  z1    <- params["z1"]
+  z2    <- params["z2"]
+  z3    <- params["z3"]
+  z4    <- params["z4"]
+
+  # Make parameter list for ODE and initial conditions
+  parms <- c(alpha = alpha, rho = rho, mu0 = mu0, a2 = a2, a3 = a3, a4 = a4, b = b, gamma = gamma, l = l,
+             mu = mu, p = p, phi1 = phi1, phi2 = phi2, phi3 = phi3, phi4 = phi4, ql = ql, vL = vL,
+             r2 = r2, r3 = r3, r4 = r4, t1 = t1, t2 = t2, t3 = t3, t4 = t4, y1 = y1, y2 = y2,
+             z1 = z1, z2 = z2, z3 = z3, z4 = z4)
+
+  # Initial compartment values (as ellie's code)
+  S <- E1 <- I1 <- E2 <- I2 <- E3 <- I3 <- E4 <- I4 <- D <- N <- rep(0, totT)
+  P <- data.frame(S, E1, I1, E2, I2, E3, I3, E4, I4, D, N)
+
+  # Set initial conditions 
+  P$N[1]  <- 280.726081
+  P$E1[1] <- 11.213 * (1 - a2 - a3 - a4)
+  P$E2[1] <- 11.213 * a2
+  P$E3[1] <- 11.213 * a3
+  P$E4[1] <- 11.213 * a4
+  P$I1[1] <- (b * (CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1]) / (mu0 + mu + phi1)) / 1000000
+  P$I2[1] <- (CDCActiveHR[1] / (mu0 + mu + phi2)) / 1000000
+  P$I3[1] <- ((1 - b) * (CDCActiveTotal[1] - CDCActiveHR[1] - CDCActiveMDR[1]) / (mu0 + mu + phi3)) / 1000000
+  P$I4[1] <- (CDCActiveMDR[1] / (mu0 + mu + phi4)) / 1000000
+  P$S[1]  <- P$N[1] - P$E1[1] - P$I1[1] - P$E2[1] - P$I2[1] - P$E3[1] - P$I3[1] - P$E4[1] - P$I4[1]
+
+  list2env(as.list(parms), envir = .GlobalEnv)  
+
+  # Run simulation using helper
+  P <- hill(1, totT+1, P)
+  Results <- generateResults(P)
+
+  # Extract output at integer years 
+  indices <- seq(1, length(CDCActiveTotal)) # May need to adjust to match correct time points
+
+  Active <- Results$InfectiousTotal[indices]
+  HR     <- Results$Infectious2[indices]
+  MDR    <- Results$Infectious4[indices]
+  Deaths <- Results$Dead[indices]
+
+  # Return as expected by tb_model_error
+  return(list(Active = Active, HR = HR, MDR = MDR, Deaths = Deaths))
+}
+```
+
+GA loop
+```{r}
+set.seed(42)
+n_trials <- 20
+pop_size <- 900
+top_n <- 30
+n_generations <- 20  # changable
+
+all_trial_bests <- data.frame()
+
+# start the outer loop for each trial
+for (trial in 1:n_trials) {
+  cat("--- Starting Trial", trial, "/", n_trials, "---\n")
+  
+  # Initialize a new random population for each trial
+  population <- initialize_population(pop_size, param_ranges)
+  best_errors <- numeric(n_generations)
+  best_params <- matrix(NA, nrow = n_generations, ncol = n_params)
+
+
+for (gen in 1:n_generations) {
+  cat("Generation", gen, "\n")
+  
+  # Evaluate population
+  errors <- apply(population, 1, tb_model_error, data = cdc_data)
+  best_errors[gen] <- min(errors)
+  best_params[gen, ] <- population[which.min(errors), ]
+  
+  # Select top parents
+  idx_best <- order(errors)[1:top_n]
+  parents <- population[idx_best, , drop = FALSE]
+  
+  # Breeding: all ordered pairs
+  offspring <- matrix(NA, nrow = pop_size, ncol = n_params)
+  pair <- 1
+  for (i in 1:top_n) {
+    for (j in 1:top_n) {
+      mask <- runif(n_params) > 0.5
+      offspring[pair, ] <- ifelse(mask, parents[i, ], parents[j, ])
+      pair <- pair + 1
+    }
+  }
+  
+  # Mutation: 100 offspring, 30% chance per param
+    n_mutate <- 300 # Increased from 100
+  mutate_idx <- sample(1:pop_size, n_mutate, replace = FALSE)
+  
+  for (mi in mutate_idx) {
+    # Decide which parameters to mutate (30% chance per param)
+    mask <- runif(n_params) < 0.3
+    
+    # Generate new random values ONLY for the parameters that will be mutated
+    random_vals <- runif(n_params, param_ranges[,1], param_ranges[,2])
+    
+    # Get the original values for the individual being mutated
+    old_vals <- offspring[mi, ]
+    
+    # The new mutation method: (old + random) / 2
+    # This is applied only where the mask is TRUE
+    new_vals <- ifelse(mask, (old_vals + random_vals) / 2, old_vals)
+    
+    offspring[mi, ] <- new_vals
+  }
+
+  
+  # 5. copy top 30 parents into first 30 offspring
+  offspring[1:top_n, ] <- parents
+  
+  # 6. Next generation
+  population <- offspring
+  
+  cat("  Best error:", best_errors[gen], "\n")
+}
+
+# Final Crowd of Near-Best Fits
+final_errors <- apply(population, 1, tb_model_error, data = cdc_data)
+n_top <- 100
+idx_top <- order(final_errors)[1:n_top]
+top_params <- population[idx_top, , drop = FALSE]
+top_errors <- final_errors[idx_top]
+
+results_top <- as.data.frame(top_params)
+colnames(results_top) <- param_names
+results_top$error <- top_errors
+
+
+  # After a trial is complete, find the best individual from that trial's final population
+  final_errors <- apply(population, 1, tb_model_error, data = cdc_data)
+  best_idx_in_trial <- which.min(final_errors)
+  
+  # Get the best params and error for this trial
+  trial_best_params <- population[best_idx_in_trial, ]
+  trial_best_error <- final_errors[best_idx_in_trial]
+  
+  # Combine them into a temporary dataframe and add to our results
+  temp_df <- as.data.frame(t(c(trial_best_params, error = trial_best_error)))
+  all_trial_bests <- rbind(all_trial_bests, temp_df)
+
+} #  End of the outer trial loop
+
+# Name the columns of the final results
+colnames(all_trial_bests) <- c(param_names, "error")
+
+# Save the collection of the best individuals from all trials
+write.csv(all_trial_bests, "tb_best_from_each_trial.csv", row.names = FALSE)
+cat("Best parameter sets from", n_trials, "trials saved to tb_best_from_each_trial.csv\n")
+```
+
