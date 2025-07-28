@@ -25,7 +25,6 @@ globals [ 
   death-rate 
   initial-population; Number of individuals at the start of the simulation
   generation ; To track the number of generations elapsed
-  energy-from-grass
 ]  
 
 ;; Setup and Initialization  
@@ -39,7 +38,6 @@ to setup ; adjustable
   set death-rate 0.01 ; 1% random chance of death per tick
   set initial-population 100 
   set generation 0  
-  set energy-from-grass 0.5
 
   create-individuals initial-population [ 
     setxy random-xcor random-ycor ; place each turtle at a random location
@@ -92,7 +90,8 @@ to go
     move ; Move randomly
     eat-grass ; Gain food/energy
     age-and-die ; Age and potentially die from starvation, chance, or overpopulation
-    interact-and-reproduce ; Possibly reproduce with another nearby individual
+    interact ; Model the altruistic behavior of sharing food
+    reproduce ; Possibly reproduce with another nearby individual
   ]
 
   ask patches [grow-grass]
@@ -126,7 +125,6 @@ to move 
 end  
 
 to eat-grass
-
   if pcolor = green [
   set pcolor brown
   set energy energy + energy-from-grass ] ; gain 1 food per tick
@@ -139,7 +137,7 @@ to age-and-die 
   ; - random chance exceeds death-rate
   ; - energy runs out (starvation)
   ; - population exceeds carrying capacity (environmental constraint) 
-  if (age > 100 or energy < 5) [ die ] 
+  if (random 1 > death-rate or age > 100 or energy < 5) [ die ] 
   ; I can't remove carrying-capacity because it will overflow population if there is no carrying capacity
 end  
 
@@ -153,7 +151,7 @@ to grow-grass
 end
 
 
-to interact-and-reproduce
+to reproduce
   ; Pick a random individual on the same patch but can not be one's self 
   let partner one-of individuals-here with [self != myself] 
   if partner != nobody [
@@ -177,6 +175,22 @@ to interact-and-reproduce
  ] 
 end
 
+to interact
+  ; Pick a random individual on the same patch but can not be one's self
+  let partner one-of individuals-here with [self != myself] 
+  if partner != nobody [
+   if [genotype] of self = "AA" and [genotype] of partner = "NN"
+    [ set energy energy - 0.5
+      ask partner [ set energy energy + 0.5 ]]
+   if [genotype] of self = "AN" and [genotype] of partner = "NN"
+    [ set energy energy - 0.25
+      ask partner [ set energy energy + 0.25 ]]
+   if [genotype] of self = "AA" and [genotype] of partner = "AN"
+    [ set energy energy - 0.25
+      ask partner [ set energy energy + 0.25 ]]
+  ]
+end
+
 ;; Reproduction Function  
 
 to hatch-offspring [partner]
@@ -194,7 +208,8 @@ to hatch-offspring [partner]
     set-genotype-color ; set turtle color based on genotype
     set age 0 ; newborn starts at age 0 
     set energy 5 ; initial food
-    rt random 360 ; turn a random angle
+    rt random 100 ; turn a random angle
+    lt random 80 ; turn  a random angle
     fd 1 ; move forward one unit
   ] 
 end
@@ -227,10 +242,10 @@ ticks
 30.0
 
 BUTTON
-139
-15
-202
-48
+105
+37
+168
+70
 NIL
 go\n
 T
@@ -264,10 +279,10 @@ PENS
 "NN" 1.0 0 -11033397 true "" ""
 
 BUTTON
-29
-14
-95
-47
+31
+38
+97
+71
 NIL
 setup
 NIL
@@ -291,6 +306,21 @@ Grass-regrowth-time
 20
 18.0
 1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+31
+126
+205
+159
+Energy-from-grass
+Energy-from-grass
+0.1
+1
+0.5
+0.1
 1
 NIL
 HORIZONTAL
